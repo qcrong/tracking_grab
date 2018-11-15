@@ -10,9 +10,13 @@ project(pf_example)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
+  cv_bridge
+  image_transport
+  sensor_msgs
 )
 find_package(OpenCV REQUIRED)
-find_package(GSL REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(gsl REQUIRED gsl)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -210,7 +214,7 @@ add_executable(pf_example
 target_link_libraries(pf_example
    ${catkin_LIBRARIES}
    ${OpenCV_LIBS}
-   /usr/local/lib
+   ${gsl_LIBRARIES}
 )
 add_dependencies(
   pf_example

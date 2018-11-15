@@ -1,3 +1,9 @@
+//add by qcrong
+#include <ros/ros.h>
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>	//C标准函数库中的头文件
@@ -7,6 +13,7 @@
 #include "observation.h"
 #include <opencv2/opencv.hpp>
 #include <time.h>
+
 
 #pragma warning( disable:4996) 
 #pragma comment (lib, "libgsl.a")  //表示链接libgsl.a这个库,和在工程设置里写上链入libgsl.a的效果一样（两种方式等价，或说一个隐式一个显式调用）
@@ -47,7 +54,7 @@ int get_regions(IplImage*, CvRect**);
 void mouse(int, int, int, int, void*);
 histogram** compute_ref_histos(IplImage*, CvRect*, int);
 int export_ref_histos(histogram**, int);
-
+void rosimage2opencv(const sensor_msgs::ImageConstPtr& msg);
 
 
 /********************************** Globals **********************************/
@@ -55,6 +62,9 @@ char* vid_file = "/home/qcrong/thesis_ws/src/pf_example/test.mp4";     /* input 
 int num_particles = PARTICLES;    /* 粒子个数 */
 int show_all = 1;                 /* =1 显示每个粒子（黄色框）；=0 只显示跟踪窗口 */
 int export1 = FALSE;               /* =FALSE 不输出特征（直方图），=TRUE 输出特征（直方图），保存为.dat文件 */
+cv_bridge::CvImagePtr cv_ptr;
+IplImage* frame;
+IplImage image_temp;
 
 //static CvMemStorage* storage = 0;
 
@@ -71,7 +81,7 @@ void detect_and_draw(IplImage* image);
 int main(int argc, char** argv)
 {
 	gsl_rng* rng;
-	IplImage* frame, *hsv_frame, *frames[MAX_FRAMES];
+	IplImage *hsv_frame, *frames[MAX_FRAMES];
 	IplImage** hsv_ref_imgs;
 	histogram** ref_histos;
 	CvCapture* video;
@@ -82,25 +92,36 @@ int main(int argc, char** argv)
 	double s;
 	int i, j, k, w, h, x, y;
 	char path[255];
+
+	//订阅kinect图像
+	ros::init(argc,argv,"pf_tracking");
+	ros::NodeHandle nh;
+	ros::Subscriber image_sub=nh.subscribe("/kinect2/hd/image_color_rect",1,rosimage2opencv);
+	cvNamedWindow("test", 1);
+	cv::waitKey(1500);
+	ros::spinOnce();
+	cv::waitKey(500);
+	//ros::spinOnce();
+	//cv::waitKey(500);
+	if (!frame)
+	{
+		return 0;
+	}
 	/* parse command line and initialize random number generator 解析命令行并初始化随机数生成器 */
 	gsl_rng_env_setup();  //建立随机数生成器环境
 	rng = gsl_rng_alloc(gsl_rng_mt19937); //随机数生成器的创建
 	gsl_rng_set(rng, time(NULL));//随机数生成器的初始化
 
 	//video = cvCaptureFromFile(vid_file); //从视频文件读图像
-	video = cvCaptureFromCAM(0);       //直接从摄像头读图像
-	if (!video)
-		fatal_error("couldn't open video file %s", vid_file);
+	//video = cvCaptureFromCAM(0);       //直接从摄像头读图像
+	//if (!video)
+		//fatal_error("couldn't open video file %s", vid_file);
 	i = 0;
-
 	//cascade = (CvHaarClassifierCascade*)cvLoad( cascade_name, 0, 0, 0 );//加载行人检测分类器
 	//storage = cvCreateMemStorage(0);
-	while (frame = cvQueryFrame(video))
+	while (ros::ok())
 	{
-		if (!frame)
-		{
-			break;
-		}
+		ros::spinOnce();		
 		hsv_frame = bgr2hsv(frame);
 		frames[i] = cvCloneImage(frame);
 
@@ -384,5 +405,22 @@ int export_ref_histos(histogram** ref_histos, int n)
 	}
 
 	return 1;
+}
+/*
+	订阅相机图像，并转换为opencv格式
+*/
+void rosimage2opencv(const sensor_msgs::ImageConstPtr& msg)
+{
+	try
+	{
+		cv_ptr=cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::BGR8);
+	}
+	catch(cv_bridge::Exception &e)
+	{
+		ROS_ERROR("cv_bridge exception: %s", e.what());
+		return;
+	}
+	image_temp=IplImage(cv_ptr->image);
+	frame=cvCloneImage(&image_temp);
 }
 
