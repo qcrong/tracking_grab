@@ -91,13 +91,13 @@ int main(int argc, char** argv)
 	int num_objects = 0;
 	double s;
 	int i, j, k, w, h, x, y;
-	char path[255];
+	//char path[255];
 
 	//订阅kinect图像
 	ros::init(argc,argv,"pf_tracking");
 	ros::NodeHandle nh;
 	ros::Subscriber image_sub=nh.subscribe("/kinect2/hd/image_color_rect",1,rosimage2opencv);
-	cvNamedWindow("test", 1);
+	cvNamedWindow("Video", 1);
 	cv::waitKey(1500);
 	ros::spinOnce();
 	cv::waitKey(500);
@@ -208,11 +208,11 @@ int main(int argc, char** argv)
 			/* display most likely particle */
 			color = CV_RGB(255, 0, 0);
 			display_particle(frames[i], particles[0], color);
-			cvNamedWindow("Video", 1);
+			//cvNamedWindow("Video", 1);
 			cvShowImage("Video", frames[i]);
 			//保存跟踪结果图像为jpg格式
-			sprintf(path, "%s%d.jpg", "D:\\test", i);
-			cvSaveImage(path, frames[i], 0);
+			//sprintf(path, "%s%d.jpg", "D:\\test", i);
+			//cvSaveImage(path, frames[i], 0);
 			if (cvWaitKey(5) == 27)
 				break;
 		}
