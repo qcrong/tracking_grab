@@ -25,13 +25,14 @@ class ImageConverter
 
     cv::namedWindow(OPENCV_WINDOW);
     image_count = 0;
-    image_path=std::string("~/Picture/images_save");
+    image_path=std::string("/home/qcrong/Pictures/images_save_2");
     path_name=image_path+std::string("/test_%d.png");
 	if(mkdir(image_path.c_str(),S_IRWXU)!=0){ //创建记录文件夹，可读可写可执行权限
       std::cout<<"图像保存文件夹创建失败"<<std::endl;
 	  exit(-1);
 	}
     max_count=200;
+    cv::waitKey(2000);
    }
 
   ~ImageConverter()

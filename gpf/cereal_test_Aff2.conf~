@@ -1,0 +1,69 @@
+##
+## proj name
+##
+/home/qcrong/Documents/thesis/test/test_out
+##
+
+## video settings
+##
+# frame_dir
+/home/qcrong/Documents/thesis/test/
+# file format
+test_%d
+# init_frame
+15
+# start_frame
+15
+# end_frame
+200
+# fps
+30
+# K: row major indexing
+570.3 0 320 0 570.3 240 0 0 1
+#
+# optimization settings
+#
+# n_particles
+200
+##
+## state mdl settings
+##
+# state domain
+Aff2
+# E1: scaling, row major indexing
+1  0  0  0  1  0  0  0  0
+# E2: aspect ratio, row major indexing
+1  0  0  0 -1  0  0  0  0
+# E3: rotation, row major indexing
+0 -1  0  1  0  0  0  0  0
+# E4: skew, row major indexing
+0  1  0  1  0  0  0  0  0
+# E5: x translation, row major indexing
+0  0  1  0  0  0  0  0  0
+# E6: y translation, row major indexing
+0  0  0  0  0  1  0  0  0
+# a
+0.1
+# state_sigs
+# 0.1 0.1 0.3 0.01 20 20
+0.001 0.001 0.3 0.001 200 50
+##
+## obs mdl settings
+##
+# obs_mdl_type
+SSD
+# R_SSD 0.0001
+0.0001
+# R_PCA
+100 0 0 1
+# n_basis
+16
+# update_interval
+5
+# forget_factor
+1.0
+# template_xys
+#1120 1130 1440 1390
+#690.0000 830.0000 840.0000 690.0000
+1123 1130 1340 1319
+715.0000 800.0000 800.0000 715.0000
