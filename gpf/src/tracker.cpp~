@@ -1013,8 +1013,8 @@ public:
 				template_pnts_.push_back(os);
 			}
 			// WHICH ONE IS CORRECT? MATLB? C?
-			std::cerr << "- template_pnts_rows = " << template_pnts_.rows;
-			std::cerr << "- template_pnts_cols = " << template_pnts_.cols << std::endl;
+			//std::cerr << "- template_pnts.rows = " << template_pnts_.rows;
+			//std::cerr << ", template_pnts_cols = " << template_pnts_.cols << std::endl;
 			//std::cerr << "- template_pnts_(0, 0) = " << template_pnts_.at<float>(0, 0) << std::endl;	//这两行用来看什么？
 			//std::cerr << "- template_pnts_(0, 5) = " << template_pnts_.at<float>(0, 5) << std::endl;
 		}
