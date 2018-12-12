@@ -1218,14 +1218,16 @@ public:
 
 
 int main(int argc, char** argv) {
+
 	ros::init(argc, argv, "gpf");
 	ros::NodeHandle nh;
-	//message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
-  	//message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
-	ros::Subscriber image_sub=nh.subscribe("/kinect2/qhd/image_color_rect",1,rosimage2opencv);
+
+	message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
+  	message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
+	//ros::Subscriber image_sub=nh.subscribe("/kinect2/qhd/image_color_rect",1,rosimage2opencv);
 	cv::namedWindow("tracking...", 1);
-	//message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
-  	//sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
+	message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
+  	sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
 
 	cv::waitKey(1500);
 	ros::spinOnce();
@@ -1235,8 +1237,8 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	
-
-	std::string file=std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
+	//std::string file=argv[1];//std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
+	std::string file = std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
 	Tracker tracker(file);
 	
 

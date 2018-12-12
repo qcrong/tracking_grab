@@ -40,8 +40,8 @@ void rosimage2opencv(const sensor_msgs::ImageConstPtr& msg)
 		ROS_ERROR("cv_bridge exception: %s", e.what());
 		return;
 	}
-	cvtColor(cv_ptr->image,I_ORI,CV_BGR2GRAY);
-	//I_ORI=cv_ptr->image;
+	//cvtColor(cv_ptr->image,I_ORI,CV_BGR2GRAY);
+	I_ORI=cv_ptr->image;
 }
 
 void RecognitionCallback(const sensor_msgs::ImageConstPtr image_rgb, const sensor_msgs::ImageConstPtr image_depth){
