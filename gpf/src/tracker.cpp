@@ -1237,8 +1237,8 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	
-	//std::string file=argv[1];//std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
-	std::string file = std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
+	std::string file=argv[1];//std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
+	//std::string file = std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
 	Tracker tracker(file);
 	
 
