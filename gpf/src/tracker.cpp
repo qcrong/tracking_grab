@@ -887,6 +887,7 @@ public:
 	void my_read_inputs(Tracker::Inputs &i_inputs){
 		ros::spinOnce();
 		I_ORI.convertTo(i_inputs.I, CV_32F, 1.0 / 255.0);//把一个矩阵从一种数据类型转换到另一种数据类型，这里是对图像像素值归一化
+
 	}	
 	
 
@@ -1219,8 +1220,13 @@ public:
 int main(int argc, char** argv) {
 	ros::init(argc, argv, "gpf");
 	ros::NodeHandle nh;
+	//message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
+  	//message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
 	ros::Subscriber image_sub=nh.subscribe("/kinect2/qhd/image_color_rect",1,rosimage2opencv);
-	cvNamedWindow("tracking...", 1);
+	cv::namedWindow("tracking...", 1);
+	//message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
+  	//sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
+
 	cv::waitKey(1500);
 	ros::spinOnce();
 	cv::waitKey(500);
