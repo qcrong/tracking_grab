@@ -7,7 +7,7 @@
 	</group>
 
 	<group unless="$(arg e305)">
-		<arg name="file" value="/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf" />
+		<arg name="file" value="/home/qcrong/thesis_ws/src/tracking_grab/gpf/cereal_test_Aff2.conf" />
  		<node name="gpf_node" pkg="gpf" type="gpf" args="$(arg file)" output="screen" />
 	</group>
 </launch>
