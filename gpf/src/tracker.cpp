@@ -82,7 +82,12 @@ private:
 	std::vector<Tracker::Particle> particles_res;
 	std::vector<float> w;
 	std::vector<float> w_res;
-	//cv::Mat I_ORI;		//输入原始灰度图像
+	//相机内参,先进行标定，然后订阅相机话题查看
+	double camera_factor = 1000;
+	double camera_cx = 533.30794;
+	double camera_cy = 533.26216;
+	double camera_fx = 482.45643;
+	double camera_fy = 275.98007;	
 private:
 	void warp_template(const cv::Mat &i_I, const cv::Mat &i_X, const cv::Mat &i_template_pnts, cv::Mat &o_warped_I) {
 		// warp（弯曲，使变形） points
@@ -885,7 +890,10 @@ public:
 		}
 	}
 	void my_read_inputs(Tracker::Inputs &i_inputs){
-		ros::spinOnce();
+		while(get_new_I==false && ros::ok()){
+			ros::spinOnce();
+		}	
+		get_new_I=false;
 		I_ORI.convertTo(i_inputs.I, CV_32F, 1.0 / 255.0);//把一个矩阵从一种数据类型转换到另一种数据类型，这里是对图像像素值归一化
 
 	}	
@@ -1125,10 +1133,24 @@ public:
 		//	circle(I, p, r, cv::Scalar(255));//画一堆多边形中心
 		//}
 
+		cv::Point2i p((int)i_X.at<float>(0,2), (int)i_X.at<float>(1,2));
+		circle(I, p, 5, cv::Scalar(255),-1);//画一堆多边形中心
+
+		// 获取深度图中(i,j)处的值
+        ushort d = I_ORI_DEPTH.ptr<ushort>(p.y)[p.x];
+		// 计算这个点的空间坐标
+        cv::Point3f pm;
+        pm.z = float(d) / camera_factor;
+        pm.x = (p.x- camera_cx) * pm.z / camera_fx;
+        pm.y = (p.y - camera_cy) * pm.z / camera_fy;
+		char position[40];
+		snprintf(position, 40, "[%.02f,%.02f,%.02f]", pm.x, pm.y, pm.z);
+		cv::putText(I, position, cv::Point(p.x+10, p.y+10), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255));
+
 		// add a title
-		char title[128];
-		snprintf(title,128, "%.02f fps", fps);
-		cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0));
+		char title[20];
+		snprintf(title,20, "%.02f fps", fps);
+		cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 2, cv::Scalar(255));
 		// show
 		cv::imshow("tracking...", I);
 		cv::waitKey(1);
@@ -1225,17 +1247,23 @@ int main(int argc, char** argv) {
 	message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
   	message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
 	//ros::Subscriber image_sub=nh.subscribe("/kinect2/qhd/image_color_rect",1,rosimage2opencv);
-	cv::namedWindow("tracking...", 1);
+	//cv::namedWindow("tracking...", 1);
 	message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
   	sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
 
+	/*
 	cv::waitKey(1500);
+	while(get_new_I==false && ros::ok()){
+		ros::spinOnce();
+	}	
+	get_new_I=false;
+	
 	ros::spinOnce();
-	cv::waitKey(500);
+	cv::waitKey(1500);
 	if (I_ORI.empty())
 	{
 		return 0;
-	}
+	}*/
 	
 	std::string file=argv[1];//std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
 	//std::string file = std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");

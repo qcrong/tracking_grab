@@ -15,6 +15,7 @@
 cv_bridge::CvImagePtr cv_ptr;
 cv::Mat I_ORI;  //è¾“å…¥åŸå§‹ç°åº¦å›¾åƒ
 cv::Mat I_ORI_DEPTH; //Éî¶ÈÍ¼
+bool get_new_I=false; //»ñµÃĞÂÍ¼Æ¬
 
 struct img_point{
 	cv::Mat image;
@@ -57,6 +58,7 @@ void RecognitionCallback(const sensor_msgs::ImageConstPtr image_rgb, const senso
 		return;
 	}
 	I_ORI=cv_ptr->image;
+	get_new_I=true;
   	//I_ORI = cv_bridge::toCvShare(image_rgb,"mono8")->image;
   	//I_ORI_DEPTH = cv_bridge::toCvShare(image_depth)->image;
 }
