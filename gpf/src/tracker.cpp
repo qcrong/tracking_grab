@@ -84,10 +84,10 @@ private:
 	std::vector<float> w_res;
 	//相机内参,先进行标定，然后订阅相机话题查看
 	double camera_factor = 1000;
-	double camera_cx = 533.30794;
-	double camera_cy = 533.26216;
-	double camera_fx = 482.45643;
-	double camera_fy = 275.98007;	
+	double camera_cx = 482.45643;
+	double camera_cy = 275.98007;
+	double camera_fx = 533.30794;
+	double camera_fy = 533.26216;	
 private:
 	void warp_template(const cv::Mat &i_I, const cv::Mat &i_X, const cv::Mat &i_template_pnts, cv::Mat &o_warped_I) {
 		// warp（弯曲，使变形） points
@@ -1144,13 +1144,13 @@ public:
         pm.x = (p.x- camera_cx) * pm.z / camera_fx;
         pm.y = (p.y - camera_cy) * pm.z / camera_fy;
 		char position[40];
-		snprintf(position, 40, "[%.02f,%.02f,%.02f]", pm.x, pm.y, pm.z);
-		cv::putText(I, position, cv::Point(p.x+10, p.y+10), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255));
+		snprintf(position, 40, "[%.03f,%.03f,%.03f]", pm.x, pm.y, pm.z);
+		cv::putText(I, position, cv::Point(p.x+10, p.y+10), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255),2);
 
 		// add a title
 		char title[20];
 		snprintf(title,20, "%.02f fps", fps);
-		cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 2, cv::Scalar(255));
+		cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255),2);
 		// show
 		cv::imshow("tracking...", I);
 		cv::waitKey(1);
