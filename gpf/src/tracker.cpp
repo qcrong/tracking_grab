@@ -83,11 +83,13 @@ private:
 	std::vector<float> w;
 	std::vector<float> w_res;
 	//相机内参,先进行标定，然后订阅相机话题查看
-	double camera_factor = 1000;
-	double camera_cx = 482.45643;
-	double camera_cy = 275.98007;
-	double camera_fx = 533.30794;
-	double camera_fy = 533.26216;	
+	double camera_factor;
+	double camera_cx;
+	double camera_cy;
+	double camera_fx;
+	double camera_fy;
+	//长边编号和短边编号
+	int far_point, near_point;	
 private:
 	void warp_template(const cv::Mat &i_I, const cv::Mat &i_X, const cv::Mat &i_template_pnts, cv::Mat &o_warped_I) {
 		// warp（弯曲，使变形） points
@@ -865,9 +867,19 @@ public:
 	Tracker(const std::string &i_conf_fn) {
 		load_params(i_conf_fn);
 		//std::cout<<"load successed"<<std::endl;
+		camera_factor = 1000;
+		camera_cx = 482.45643;
+		camera_cy = 275.98007;
+		camera_fx = 533.30794;
+		camera_fy = 533.26216;
 	}
 	Tracker(const Tracker::Params &i_params) {
 		params_ = i_params;
+		camera_factor = 1000;
+		camera_cx = 482.45643;
+		camera_cy = 275.98007;
+		camera_fx = 533.30794;
+		camera_fy = 533.26216;
 	}
 
 	void read_inputs(int i_t, Tracker::Inputs &i_inputs, cv::Mat &I_ori) {
@@ -1060,6 +1072,7 @@ public:
 		cv::Mat i_I = i_inputs.I;
 		// propose new Xt 重要性采样，更新particles
 		propose_particles(particles_, particles);
+		//std::cerr << "-propose_particles: " << std::endl;
 		//绘制所有跟踪框
 		//myShow(I_ORI, particles, i_t, 1);
 		// update weights 更新w
@@ -1106,6 +1119,7 @@ public:
 		const cv::Point *pts[1] = { pnts.data() };
 		const int npts[1] = { (int)pnts.size() };
 		polylines(I, pts, npts, 1, true, cv::Scalar(255, 0, 0), 2); //绘制包围多边形
+		
 		// draw t ::FIXME: access to private vars
 		//int n_particles = particles_.size();
 		//float val_max = w_[0];
@@ -1134,19 +1148,121 @@ public:
 		//}
 
 		cv::Point2i p((int)i_X.at<float>(0,2), (int)i_X.at<float>(1,2));
-		circle(I, p, 5, cv::Scalar(255),-1);//画一堆多边形中心
+		circle(I, p, 2, cv::Scalar(255),-1);//画多边形中心
+		//防止边缘点超出物品边界，收缩为原来的1/4
+		std::vector<cv::Point2i> small_P2d(4);
+		small_P2d[0]=p;
+		for(int i=1;i<4;i++){
+			small_P2d[i].x=p.x+(int)(pnts[i].x-pnts[0].x)/5;
+			small_P2d[i].y=p.y+(int)(pnts[i].y-pnts[0].y)/5;
+			circle(I, small_P2d[i], 2, cv::Scalar(255),-1);
+		}
 
-		// 获取深度图中(i,j)处的值
-        ushort d = I_ORI_DEPTH.ptr<ushort>(p.y)[p.x];
-		// 计算这个点的空间坐标
-        cv::Point3f pm;
-        pm.z = float(d) / camera_factor;
-        pm.x = (p.x- camera_cx) * pm.z / camera_fx;
-        pm.y = (p.y - camera_cy) * pm.z / camera_fy;
-		char position[40];
-		snprintf(position, 40, "[%.03f,%.03f,%.03f]", pm.x, pm.y, pm.z);
-		cv::putText(I, position, cv::Point(p.x+10, p.y+10), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255),2);
+		std::vector<cv::Mat> small_P3f(4);
+		bool depth_avail=true; //深度图读取是否有值
+		for(int i=0;i<4;i++){
+			// 获取深度图点处的值
+			std::cout<<"small_P2d[i].y "<< small_P2d[i].y <<std::endl;
+			std::cout<<"small_P2d[i].x "<< small_P2d[i].x <<std::endl;
+        	ushort d = I_ORI_DEPTH.ptr<ushort>(small_P2d[i].y)[small_P2d[i].x];
+			if(d<=0 || d>3000){
+				depth_avail=false;
+				std::cout<<"depth error"<< i <<": "<<d<<std::endl;
+				break;			
+			}
+			//计算空间坐标
+			cv::Mat temp_point=cv::Mat(1,3,CV_32FC1);
+			temp_point.at<float>(0,2)=float(d) / camera_factor;
+			temp_point.at<float>(0,0) = (small_P2d[i].x- camera_cx) * temp_point.at<float>(0,2) / camera_fx;
+        	temp_point.at<float>(0,1) = (small_P2d[i].y - camera_cy) * temp_point.at<float>(0,2) / camera_fy;
+			small_P3f[i]=temp_point.clone();
+		}
+		if(depth_avail){
+			std::vector<cv::Mat> obj_xyz(3);//物体坐标系
+			obj_xyz[0]=small_P3f[far_point]-small_P3f[0];
+			cv::normalize(obj_xyz[0],obj_xyz[0]);
+			//std::cout<<"obj_xyz[0] normalize"<<std::endl<<obj_xyz[0]<<std::endl;
 
+			if(near_point<0){
+				obj_xyz[1]=small_P3f[-near_point]-small_P3f[0];
+				obj_xyz[2]=obj_xyz[1].cross(obj_xyz[0]);
+			}
+			else{
+				obj_xyz[1]=small_P3f[near_point]-small_P3f[0];
+				obj_xyz[2]=obj_xyz[0].cross(obj_xyz[1]);
+			}
+			cv::normalize(obj_xyz[2],obj_xyz[2]);
+			//std::cout<<"obj_xyz[2] normalize"<<std::endl<<obj_xyz[2]<<std::endl;
+
+			obj_xyz[1]=obj_xyz[2].cross(obj_xyz[0]);
+			cv::normalize(obj_xyz[1],obj_xyz[1]);
+			//std::cout<<"obj_xyz[1] normalize"<<std::endl<<obj_xyz[1]<<std::endl<<std::endl;
+
+			//求解RT
+			cv::Mat obj_mean=cv::Mat::zeros(3,1,CV_32FC1);
+			cv::Mat obj_points=cv::Mat::zeros(4,3,CV_32FC1);
+			for(int i=1;i<4;i++){
+				for(int j=0;j<3;j++){
+					cv::Mat temp=small_P3f[i]-small_P3f[0];
+					obj_points.at<float>(i,j)=temp.dot(obj_xyz[j]);
+				}
+				obj_mean.at<float>(0,0)+=obj_points.at<float>(i,0);
+				obj_mean.at<float>(0,1)+=obj_points.at<float>(i,1);
+				obj_mean.at<float>(0,2)+=obj_points.at<float>(i,2);
+			}
+			//std::cout<<"obj_points"<<std::endl<<obj_points<<std::endl;
+			obj_mean/=4;
+			for(int i=0;i<4;i++){
+				obj_points.at<float>(i,0)-=obj_mean.at<float>(0,0);
+				obj_points.at<float>(i,1)-=obj_mean.at<float>(0,1);
+				obj_points.at<float>(i,2)-=obj_mean.at<float>(0,2);
+			}
+
+			cv::Mat cam_mean=cv::Mat::zeros(3,1,CV_32FC1);
+			cv::Mat cam_points=cv::Mat(3,4,CV_32FC1);
+			for(int j=0;j<4;j++){
+				for(int i=0;i<3;i++){
+					cam_points.at<float>(i,j)=small_P3f[j].at<float>(0,i);
+				}
+				cam_mean.at<float>(0,0)+=cam_points.at<float>(0,j);
+				cam_mean.at<float>(0,1)+=cam_points.at<float>(1,j);
+				cam_mean.at<float>(0,2)+=cam_points.at<float>(2,j);
+			}
+			//std::cout<<"cam_points"<<std::endl<<cam_points<<std::endl;
+			cam_mean/=4;
+			for(int j=0;j<4;j++){
+				cam_points.at<float>(0,j)-=cam_mean.at<float>(0,0);
+				cam_points.at<float>(1,j)-=cam_mean.at<float>(0,1);
+				cam_points.at<float>(2,j)-=cam_mean.at<float>(0,2);
+			}
+		
+			cv::Mat H=cam_points*obj_points;
+			// svd(H)
+			cv::Mat u, v, s;
+			cv::SVD::compute(H, s, u, v); //这里求得的v是vt
+			v=v.t();
+			//std::cerr << "- size(u): " << u.rows << ", " << u.cols << std::endl;
+			//std::cerr << "- s: " << s << std::endl;
+			//std::cerr << "- v: " << v << std::endl;
+			cv::Mat r=v*u.t();
+			std::cout << "-R:" << std::endl << r << std::endl;
+			if(cv::determinant(r)<0){
+				std::cout<<"reflection detected"<<std::endl;
+				v.at<float>(0,2)*=-1;
+				v.at<float>(1,2)*=-1;
+				v.at<float>(2,2)*=-1;
+				r=v*u.t();
+				std::cout << "-R: " << std::endl << r << std::endl;			
+			}
+			//cv::Mat t=r*cam_mean+obj_mean;
+			//std::cout<<"t:"<<std::endl<<t<<std::endl;
+			std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
+			
+			char position[40];
+			snprintf(position, 40, "[%.03f,%.03f,%.03f]", small_P3f[0].at<float>(0,0), small_P3f[0].at<float>(0,1), small_P3f[0].at<float>(0,2));
+			cv::putText(I, position, cv::Point(p.x+10, p.y+10), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255),2);
+		}
+		
 		// add a title
 		char title[20];
 		snprintf(title,20, "%.02f fps", fps);
@@ -1218,7 +1334,11 @@ public:
 
 			cv::Mat X_opt;
 			if (t == params_.init_frame){
-				get_template_poly_pnts(I_ORI,params_.template_xs,params_.template_ys);
+				if(get_template_poly_pnts(I_ORI, params_.template_xs, params_.template_ys, far_point, near_point)==false){
+					std::cout<<"get_template_poly_pnts ellor"<<std::endl;
+					return;
+				}
+				/*
 				std::cout<<"params_.template_xs: ";
 				for(int i=0;i<params_.template_xs.size();i++){
 					std::cout<<params_.template_xs[i]<<" ";
@@ -1227,13 +1347,15 @@ public:
 				for(int i=0;i<params_.template_ys.size();i++){
 					std::cout<<params_.template_ys[i]<<" ";
 				}
-				std::cout<<std::endl;
+				std::cout<<std::endl;*/
 				Init(I, X_opt);		//对于彩图，X_opt为3X3向量，对角线为1，最后一列前两行为模板顶点X和Y的均值，粒子都在中心点
+				//std::cout<<"init finished"<<std::endl;
 			}
 			else
 				Track(I, t, X_opt);
 
 			Show(I_ORI, X_opt, t, fn_out);
+			//std::cout<<"show finished"<<std::endl;
 		}
 	}
 };

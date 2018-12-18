@@ -11,6 +11,7 @@
 #include <kinect2_bridge/kinect2_definitions.h>
 
 #include "utils.h"
+#include <math.h>
 
 cv_bridge::CvImagePtr cv_ptr;
 cv::Mat I_ORI;  //杈撳叆鍘熷鐏板害鍥惧儚
@@ -24,7 +25,7 @@ struct img_point{
 };
 
 void rosimage2opencv(const sensor_msgs::ImageConstPtr& msg);//璁㈤槄鐩告満鍥惧儚锛屽苟杞崲涓簅pencv鏍煎紡
-void get_template_poly_pnts(const cv::Mat &frame, std::vector<float> &template_xs, std::vector<float> &template_ys);
+bool get_template_poly_pnts(const cv::Mat &frame, std::vector<float> &template_xs, std::vector<float> &template_ys);
 void mouse(int event, int x, int y, int flags, void* param);
 
 /*
@@ -63,7 +64,7 @@ void RecognitionCallback(const sensor_msgs::ImageConstPtr image_rgb, const senso
   	//I_ORI_DEPTH = cv_bridge::toCvShare(image_depth)->image;
 }
 
-void get_template_poly_pnts(const cv::Mat &frame, std::vector<float> &template_xs, std::vector<float> &template_ys){
+bool get_template_poly_pnts(const cv::Mat &frame, std::vector<float> &template_xs, std::vector<float> &template_ys, int &far_point_, int &near_point_){
 	char* win_name = "get_roi";
 	cv::namedWindow(win_name, 1);
 	cv::imshow(win_name, I_ORI);
@@ -72,11 +73,45 @@ void get_template_poly_pnts(const cv::Mat &frame, std::vector<float> &template_x
     image_xys.win_name=win_name;	
 	cv::setMouseCallback(win_name, &mouse, &image_xys);
 	cv::waitKey(0);
+	if(image_xys.xys.size()!=4){
+		std::cout<<"selected points not 4"<<std::endl;
+		return false;
+	}
 	for(int i=0;i<image_xys.xys.size();i++){
 		template_xs.push_back(image_xys.xys[i].x);
 		template_ys.push_back(image_xys.xys[i].y);
 	}
+
+	far_point_=1;	//假设第一个点为长轴u
+	near_point_=3;
+
+	int u_x=template_xs[far_point_]-template_xs[0];
+    int u_y=template_ys[far_point_]-template_ys[0];
+	int v_x=template_xs[near_point_]-template_xs[0];
+	int v_y=template_ys[near_point_]-template_ys[0];
+
+	float L1=sqrt(pow(u_x,2)+pow(u_y,2));
+	float L2=sqrt(pow(v_x,2)+pow(v_y,2));
+	int angle_uv;	//用于判断长轴到短轴的夹角正负
+	if(L1>L2){		//假设正确，u为长轴
+		angle_uv=u_x*v_y-u_y*v_x;	//向量叉乘，求判断长轴到短轴的夹角正负
+	}
+	else{
+		far_point_=3;
+		near_point_=1;
+		angle_uv=v_x*u_y-v_y*u_x;
+	}
+
+	if(angle_uv<0){	//夹角为负
+		near_point_=-near_point_;
+	}
+	
+	std::cout<<"far_point_: "<<far_point_<<std::endl;
+	std::cout<<"near_point_: "<<near_point_<<std::endl;
+	
+
 	cvDestroyWindow(win_name);
+	return true;
 }
 
 void mouse(int event, int x, int y, int flags, void* param){
