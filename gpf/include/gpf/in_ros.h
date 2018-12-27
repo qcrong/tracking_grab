@@ -12,22 +12,38 @@
 
 #include "utils.h"
 #include <math.h>
+#include <geometry_msgs/Transform.h>
 
 cv_bridge::CvImagePtr cv_ptr;
-cv::Mat I_ORI;  //输入原始灰度图像
+cv::Mat I_ORI;  //RGB
 cv::Mat I_ORI_DEPTH; //���ͼ
 bool get_new_I=false; //�����ͼƬ
+ros::Publisher position_publisher;
 
 struct img_point{
 	cv::Mat image;
 	std::vector<cv::Point2d> xys;
-    char* win_name;
+    std::string win_name;
 };
 
+
+void rosinit(int argc, char** argv);
 void rosimage2opencv(const sensor_msgs::ImageConstPtr& msg);//订阅相机图像，并转换为opencv格式
+void RecognitionCallback(const sensor_msgs::ImageConstPtr image_rgb, const sensor_msgs::ImageConstPtr image_depth);
 bool get_template_poly_pnts(const cv::Mat &frame, std::vector<float> &template_xs, std::vector<float> &template_ys);
 void mouse(int event, int x, int y, int flags, void* param);
+void pub_position(cv::Mat &_T,cv::Mat &_R);
 
+
+void rosinit(int argc, char **argv){
+    ros::init(argc, argv, "gpf");
+    ros::NodeHandle nh;
+    message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
+    message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
+    message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
+    sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
+
+}
 /*
 	订阅相机图像，并转换为opencv格式
 */
@@ -65,7 +81,7 @@ void RecognitionCallback(const sensor_msgs::ImageConstPtr image_rgb, const senso
 }
 
 bool get_template_poly_pnts(const cv::Mat &frame, std::vector<float> &template_xs, std::vector<float> &template_ys, int &far_point_, int &near_point_){
-	char* win_name = "get_roi";
+    std::string win_name = "get_roi";
 	cv::namedWindow(win_name, 1);
 	cv::imshow(win_name, I_ORI);
 	img_point image_xys;
@@ -110,7 +126,7 @@ bool get_template_poly_pnts(const cv::Mat &frame, std::vector<float> &template_x
 	std::cout<<"near_point_: "<<near_point_<<std::endl;
 	
 
-	cvDestroyWindow(win_name);
+    cv::destroyWindow(win_name);
 	return true;
 }
 
@@ -125,4 +141,24 @@ void mouse(int event, int x, int y, int flags, void* param){
 		cv::waitKey(1);
 	}
 	
+}
+
+void pub_position(cv::Mat &_T,cv::Mat &_R){
+    geometry_msgs::Transform position;
+    position.translation.x=_T.at<float>(0,0);
+    position.translation.y=_T.at<float>(0,1);
+    position.translation.z=_T.at<float>(0,2);
+
+    Eigen::Matrix3d r;
+    for(int i=0;i<3;i++){
+        for(int j=0;j<3;j++){
+            r(i,j)=_R.at<float>(i,j);
+        }
+    }
+    Eigen::Quaterniond quate_r(r);
+    position.rotation.x=quate_r.x();
+    position.rotation.y=quate_r.y();
+    position.rotation.z=quate_r.z();
+    position.rotation.w=quate_r.w();
+    position_publisher.publish(position);
 }

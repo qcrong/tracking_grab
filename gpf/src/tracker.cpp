@@ -1149,21 +1149,20 @@ public:
 
 		cv::Point2i p((int)i_X.at<float>(0,2), (int)i_X.at<float>(1,2));
 		circle(I, p, 2, cv::Scalar(255),-1);//画多边形中心
-		//防止边缘点超出物品边界，收缩为原来的1/4
+        //防止边缘点超出物品边界，收缩为原来的1/5
 		std::vector<cv::Point2i> small_P2d(4);
 		small_P2d[0]=p;
 		for(int i=1;i<4;i++){
 			small_P2d[i].x=p.x+(int)(pnts[i].x-pnts[0].x)/5;
 			small_P2d[i].y=p.y+(int)(pnts[i].y-pnts[0].y)/5;
-			circle(I, small_P2d[i], 2, cv::Scalar(255),-1);
 		}
 
 		std::vector<cv::Mat> small_P3f(4);
 		bool depth_avail=true; //深度图读取是否有值
 		for(int i=0;i<4;i++){
 			// 获取深度图点处的值
-			std::cout<<"small_P2d[i].y "<< small_P2d[i].y <<std::endl;
-			std::cout<<"small_P2d[i].x "<< small_P2d[i].x <<std::endl;
+            //std::cout<<"small_P2d[i].y "<< small_P2d[i].y <<std::endl;
+            //std::cout<<"small_P2d[i].x "<< small_P2d[i].x <<std::endl;
         	ushort d = I_ORI_DEPTH.ptr<ushort>(small_P2d[i].y)[small_P2d[i].x];
 			if(d<=0 || d>3000){
 				depth_avail=false;
@@ -1184,7 +1183,8 @@ public:
 			//std::cout<<"obj_xyz[0] normalize"<<std::endl<<obj_xyz[0]<<std::endl;
 
 			if(near_point<0){
-				obj_xyz[1]=small_P3f[-near_point]-small_P3f[0];
+                near_point=-near_point;
+                obj_xyz[1]=small_P3f[near_point]-small_P3f[0];
 				obj_xyz[2]=obj_xyz[1].cross(obj_xyz[0]);
 			}
 			else{
@@ -1245,24 +1245,27 @@ public:
 			//std::cerr << "- s: " << s << std::endl;
 			//std::cerr << "- v: " << v << std::endl;
 			cv::Mat r=v*u.t();
-			std::cout << "-R:" << std::endl << r << std::endl;
 			if(cv::determinant(r)<0){
 				std::cout<<"reflection detected"<<std::endl;
 				v.at<float>(0,2)*=-1;
 				v.at<float>(1,2)*=-1;
 				v.at<float>(2,2)*=-1;
 				r=v*u.t();
-				std::cout << "-R: " << std::endl << r << std::endl;			
 			}
 			//cv::Mat t=r*cam_mean+obj_mean;
 			//std::cout<<"t:"<<std::endl<<t<<std::endl;
-			std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
-			
+            //std::cout << "-R:" << std::endl << r << std::endl;
+            //std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
+            pub_position(small_P3f[0],r);
+
 			char position[40];
 			snprintf(position, 40, "[%.03f,%.03f,%.03f]", small_P3f[0].at<float>(0,0), small_P3f[0].at<float>(0,1), small_P3f[0].at<float>(0,2));
-			cv::putText(I, position, cv::Point(p.x+10, p.y+10), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255),2);
+            cv::putText(I, position, cv::Point(p.x+50, p.y+50), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255),2);
 		}
-		
+        //绘制方向向量
+        circle(I, small_P2d[0], 2, cv::Scalar(255),-1);
+        line(I,small_P2d[0],small_P2d[far_point],cv::Scalar(0),2);
+        line(I,small_P2d[0],small_P2d[near_point],cv::Scalar(100),2);
 		// add a title
 		char title[20];
 		snprintf(title,20, "%.02f fps", fps);
@@ -1362,16 +1365,16 @@ public:
 
 
 int main(int argc, char** argv) {
+    ros::init(argc, argv, "gpf");
+    ros::NodeHandle nh;
+    message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
+    message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
+    message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
+    sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
+    position_publisher=nh.advertise<geometry_msgs::Transform>("/gpf/position", 1, true);
 
-	ros::init(argc, argv, "gpf");
-	ros::NodeHandle nh;
 
-	message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
-  	message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
-	//ros::Subscriber image_sub=nh.subscribe("/kinect2/qhd/image_color_rect",1,rosimage2opencv);
-	//cv::namedWindow("tracking...", 1);
-	message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
-  	sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
+
 
 	/*
 	cv::waitKey(1500);
