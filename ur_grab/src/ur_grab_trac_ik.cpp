@@ -136,10 +136,11 @@ void variable_init(void)
 	
 	
 
-    base2eye_r<<0.9999544128122791, 5.038461585800489e-05, 0.009548285638812659,
- 				-0.007120978997372615, -0.6622527014297817, 0.7492467224533415,
- 				0.006361128466620639, -0.7492805595438506, -0.6622221524037719;
-    base2eye_t<<-0.01960565080944882,-1.627833670175375,0.7080928837913755;
+    base2eye_r<<0.9978181985477985, 0.05899849817026713, -0.02963139990753466,
+                0.06178207154344488, -0.6761810618174333, 0.734140413868662,
+                0.02327699041173496, -0.7343693545165834, -0.67835081842972;
+
+    base2eye_t<<0.01787618021554105,-1.471458374882839,0.735535095875542;
     base2eye_q=base2eye_r;
 
 //	left_place_Pos.p = KDL::Vector(0.29, 0.67, 0.09);
@@ -219,7 +220,7 @@ void robot_target_subCB(const geometry_msgs::Transform & _position)
 	//if(_point_.y<0.0) _point_.y = 0.0;
 	//if(_point_.y>0.6) _point_.y = 0.6;
     //_point_.z+=0.195;
-    base_center3d(2)+=0.3;
+    //base_center3d(2)+=0.3;
     _pos_.p = KDL::Vector(base_center3d(0), base_center3d(1), base_center3d(2));
     _pos_.M=KDL::Rotation::Quaternion(base_quater.x(),base_quater.y(),base_quater.z(),base_quater.w());
     //_pos_.M = KDL::Rotation::RPY(3.14, 0.0, 0.0);
