@@ -48,6 +48,8 @@ Eigen::Matrix3d base2eye_r;
 Eigen::Vector3d base2eye_t;
 Eigen::Quaterniond base2eye_q;
 
+Eigen::Vector3d hand2tool0_t;
+
 
 //读取当前关节位置信息
 void left_jointstates_subCB(const sensor_msgs::JointState &JS)
@@ -134,17 +136,13 @@ void variable_init(void)
 	left_home_Pos.p=KDL::Vector(0.02234, 0.78759, 0.25);
 	left_home_Pos.M = KDL::Rotation::RPY(3.14, 0.0, 0.0);
 	
-	
-
     base2eye_r<<0.9978181985477985, 0.05899849817026713, -0.02963139990753466,
                 0.06178207154344488, -0.6761810618174333, 0.734140413868662,
                 0.02327699041173496, -0.7343693545165834, -0.67835081842972;
 
     base2eye_t<<0.01787618021554105,-1.471458374882839,0.735535095875542;
     base2eye_q=base2eye_r;
-
-//	left_place_Pos.p = KDL::Vector(0.29, 0.67, 0.09);
-//	left_place_Pos.M = KDL::Rotation::RPY(3.14, 0.0, 0.0);
+    hand2tool0_t<<0,0,-0.2;
 }
 
 /*
@@ -204,58 +202,21 @@ void robot_target_subCB(const geometry_msgs::Transform & _position)
     eye_center3d(1)=_position.translation.y;
     eye_center3d(2)=_position.translation.z;
 
-    base_center3d=base2eye_r*eye_center3d+base2eye_t;
-    Eigen::Quaterniond base_quater(_position.rotation.w,_position.rotation.x,_position.rotation.y,_position.rotation.z);
-    //Eigen::Quaterniond base_quater(0.9238795,0,0,0.38268343);
-    //Eigen::Quaterniond base_quater(1,0,0,0);
+    base_center3d=base2eye_r*eye_center3d+base2eye_t;//目标转换到基座标系下
+    Eigen::Quaterniond base_quater(_position.rotation.w,_position.rotation.x,_position.rotation.y,_position.rotation.z);//eye2obj
     base_quater=base2eye_q*base_quater;
-	std::cout<<"base_center3d "<<base_center3d(0)<<" "<<base_center3d(1)<<" "<<base_center3d(2)<<" "<<std::endl;
-	std::cout<<"base_quater "<<base_quater.x()<<" "<<base_quater.y()<<" "<<base_quater.z()<<" "<<base_quater.w()<<" "<<std::endl;
-    std::cout<<"base2eye_q "<<base2eye_q.x()<<" "<<base2eye_q.y()<<" "<<base2eye_q.z()<<" "<<base2eye_q.w()<<" "<<std::endl;
+    base_center3d=base_quater*hand2tool0_t+base_center3d;//考虑手抓偏移
 
-    //geometry_msgs::Point _point_ = _position;
+    std::cout<<"base_center3d "<<base_center3d(0)<<" "<<base_center3d(1)<<" "<<base_center3d(2)<<" "<<std::endl;
+    std::cout<<"base_quater "<<base_quater.x()<<" "<<base_quater.y()<<" "<<base_quater.z()<<" "<<base_quater.w()<<" "<<std::endl;
 	KDL::Frame _pos_;
-	//if(_point_.x<0.2) _point_.x = 0.2;
-	//if(_point_.x>0.7) _point_.x = 0.7;
-	//if(_point_.y<0.0) _point_.y = 0.0;
-	//if(_point_.y>0.6) _point_.y = 0.6;
-    //_point_.z+=0.195;
-    //base_center3d(2)+=0.3;
     _pos_.p = KDL::Vector(base_center3d(0), base_center3d(1), base_center3d(2));
     _pos_.M=KDL::Rotation::Quaternion(base_quater.x(),base_quater.y(),base_quater.z(),base_quater.w());
-    //_pos_.M = KDL::Rotation::RPY(3.14, 0.0, 0.0);
+
 	//到达抓取点上方
 	bool state = left_insertTrack(_pos_, 10);
 	if(state) left_excTrack();
-	//ros::Duration(1).sleep();
-	//抓取
-	//Finger1ToTarget(600, 1000, 800, TestPub);
-	//Finger2ToTarget(600, 1000, 800, TestPub);
-	//Finger3ToTarget(600, 1000, 800, TestPub);
-	//PoseToTarget(0, 500, 500);
-	//ExcuteCmd(TestPub);
-	//ros::Duration(0.5).sleep();
-
-	//移动到放置点	
-//	state = left_insertTrack(left_place_Pos, 1);
-//	if(state) left_excTrack();
-//	ros::Duration(0.5).sleep();
-	//放置
-	//Finger1ToTarget(0, 1000, 500, TestPub);
-	//Finger2ToTarget(0, 1000, 500, TestPub);
-	//Finger3ToTarget(0, 1000, 500, TestPub);
-	//PoseToTarget(0, 500, 500);
-	//ExcuteCmd(TestPub);
-
-	//回初始位置
-//	state = left_insertTrack(left_home_Pos, 1);
-//	if(state) left_excTrack();
-	
-//	std_msgs::Int8 grasp_finish;
-//    grasp_finish.data=1;
-//	grasp_finish_Pub.publish(grasp_finish);
-    ros::Duration(1).sleep();
-	
+    ros::Duration(1).sleep();	
 }
 
 int main(int argc, char **argv)
