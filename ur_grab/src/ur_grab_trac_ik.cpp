@@ -133,11 +133,13 @@ void variable_init(void)
 	
 	left_home_Pos.p=KDL::Vector(0.02234, 0.78759, 0.25);
 	left_home_Pos.M = KDL::Rotation::RPY(3.14, 0.0, 0.0);
+	
+	
 
-    base2eye_r<<0.02775470241621737, -0.9983886629987773, 0.04949491417900936,
-                -0.9984233782515894, -0.03010426443992026, -0.04737458839529671,
-                0.04878826198507039, -0.04810198253680015, -0.9976501245313218;
-    base2eye_t<<-0.4961986013429963,-0.6043712289857819,0.7137581412140669;
+    base2eye_r<<0.9999544128122791, 5.038461585800489e-05, 0.009548285638812659,
+ 				-0.007120978997372615, -0.6622527014297817, 0.7492467224533415,
+ 				0.006361128466620639, -0.7492805595438506, -0.6622221524037719;
+    base2eye_t<<-0.01960565080944882,-1.627833670175375,0.7080928837913755;
     base2eye_q=base2eye_r;
 
 //	left_place_Pos.p = KDL::Vector(0.29, 0.67, 0.09);
@@ -203,7 +205,12 @@ void robot_target_subCB(const geometry_msgs::Transform & _position)
 
     base_center3d=base2eye_r*eye_center3d+base2eye_t;
     Eigen::Quaterniond base_quater(_position.rotation.w,_position.rotation.x,_position.rotation.y,_position.rotation.z);
+    //Eigen::Quaterniond base_quater(0.9238795,0,0,0.38268343);
+    //Eigen::Quaterniond base_quater(1,0,0,0);
     base_quater=base2eye_q*base_quater;
+	std::cout<<"base_center3d "<<base_center3d(0)<<" "<<base_center3d(1)<<" "<<base_center3d(2)<<" "<<std::endl;
+	std::cout<<"base_quater "<<base_quater.x()<<" "<<base_quater.y()<<" "<<base_quater.z()<<" "<<base_quater.w()<<" "<<std::endl;
+    std::cout<<"base2eye_q "<<base2eye_q.x()<<" "<<base2eye_q.y()<<" "<<base2eye_q.z()<<" "<<base2eye_q.w()<<" "<<std::endl;
 
     //geometry_msgs::Point _point_ = _position;
 	KDL::Frame _pos_;
@@ -217,7 +224,7 @@ void robot_target_subCB(const geometry_msgs::Transform & _position)
     _pos_.M=KDL::Rotation::Quaternion(base_quater.x(),base_quater.y(),base_quater.z(),base_quater.w());
     //_pos_.M = KDL::Rotation::RPY(3.14, 0.0, 0.0);
 	//到达抓取点上方
-	bool state = left_insertTrack(_pos_, 1);
+	bool state = left_insertTrack(_pos_, 10);
 	if(state) left_excTrack();
 	//ros::Duration(1).sleep();
 	//抓取

@@ -1256,7 +1256,11 @@ public:
 			//std::cout<<"t:"<<std::endl<<t<<std::endl;
             //std::cout << "-R:" << std::endl << r << std::endl;
             //std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
-            pub_position(small_P3f[0],r);
+            if(i_t==50){
+                pub_position(small_P3f[0],r);
+                std::cout<<"pub_position"<<std::endl;
+            }
+
 
 			char position[40];
 			snprintf(position, 40, "[%.03f,%.03f,%.03f]", small_P3f[0].at<float>(0,0), small_P3f[0].at<float>(0,1), small_P3f[0].at<float>(0,2));
