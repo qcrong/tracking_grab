@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+﻿cmake_minimum_required(VERSION 2.8.3)
 project(gpf)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   sensor_msgs
   kinect2_bridge
+  robotiq_2f_gripper_control
 )
 find_package(OpenCV REQUIRED )
 ## System dependencies are found with CMake's conventions

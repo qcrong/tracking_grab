@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib  
   control_msgs
   tf
+  robotiq_2f_gripper_control
 )
 
 ## System dependencies are found with CMake's conventions
@@ -108,7 +109,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+   INCLUDE_DIRS include
 #  LIBRARIES ur_grab
 #  CATKIN_DEPENDS roscpp std_msgs
 #  DEPENDS system_lib
@@ -121,7 +122,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   /usr/include/eigen3
   ${catkin_INCLUDE_DIRS}
 )
@@ -210,7 +211,18 @@ add_executable(ur_grab_trac_ik
 target_link_libraries(ur_grab_trac_ik
   ${catkin_LIBRARIES}
 )
-add_dependencies(
+add_dependencies( ur_grab_trac_ik
+  ${catkin_EXPORTED_TARGETS}
+)
+
+
+add_executable(robotiq_gripper_test
+  src/robotiq_gripper_test.cpp
+)
+target_link_libraries(robotiq_gripper_test
+  ${catkin_LIBRARIES}
+)
+add_dependencies( robotiq_gripper_test
   ${catkin_EXPORTED_TARGETS}
 )
 
