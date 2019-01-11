@@ -1190,13 +1190,14 @@ public:
             std::cout<<"obj_xyz[0] normalize"<<std::endl<<obj_xyz[0]<<std::endl;
 
 			if(near_point<0){
-                near_point=-near_point;
-                obj_xyz[1]=small_P3f[near_point]-small_P3f[0];
+                obj_xyz[1]=small_P3f[-near_point]-small_P3f[0];
 				obj_xyz[2]=obj_xyz[1].cross(obj_xyz[0]);
+                std::cout<<"near_point<0"<<std::endl;
 			}
 			else{
 				obj_xyz[1]=small_P3f[near_point]-small_P3f[0];
 				obj_xyz[2]=obj_xyz[0].cross(obj_xyz[1]);
+                std::cout<<"near_point>0"<<std::endl;
 			}
 			cv::normalize(obj_xyz[2],obj_xyz[2]);
             std::cout<<"obj_xyz[2] normalize"<<std::endl<<obj_xyz[2]<<std::endl;
@@ -1281,7 +1282,7 @@ public:
         //绘制方向向量
         circle(I, small_P2d[0], 2, cv::Scalar(255),-1);
         line(I,small_P2d[0],small_P2d[far_point],cv::Scalar(0),2);
-        line(I,small_P2d[0],small_P2d[near_point],cv::Scalar(100),2);
+        line(I,small_P2d[0],small_P2d[abs(near_point)],cv::Scalar(100),2);
 		// add a title
 		char title[20];
 		snprintf(title,20, "%.02f fps", fps);
