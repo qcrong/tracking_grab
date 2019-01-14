@@ -9,9 +9,10 @@
 #include <tf/transform_listener.h>
 #include <kdl/chainfksolverpos_recursive.hpp>
 #include <actionlib/client/simple_action_client.h>
-//#include <geometry_msgs/Point.h>
 #include <geometry_msgs/Transform.h>
 #include <Eigen/Eigen>
+
+#include "ur_grab/gripperControl.h"
 
 typedef  actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>  Client;
 Client *left_client;
@@ -40,7 +41,8 @@ unsigned int track_num = 1;
 
 //unsigned int touch_state = 0;
 
-ros::Publisher TestPub;
+ros::Publisher gripperPub;
+//ros::Publisher TestPub;
 //ros::Publisher grasp_finish_Pub;
 
 //手眼关系
@@ -214,9 +216,10 @@ void robot_target_subCB(const geometry_msgs::Transform & _position)
     _pos_.M=KDL::Rotation::Quaternion(base_quater.x(),base_quater.y(),base_quater.z(),base_quater.w());
 
 	//到达抓取点上方
-	bool state = left_insertTrack(_pos_, 10);
+    bool state = left_insertTrack(_pos_, 5);
 	if(state) left_excTrack();
-    ros::Duration(1).sleep();	
+    //ros::Duration(1).sleep();
+    sendGripperMsg(gripperPub,150); //闭合爪子
 }
 
 int main(int argc, char **argv)
@@ -226,6 +229,7 @@ int main(int argc, char **argv)
   ros::NodeHandle n;
   ros::Subscriber left_jointstates_sub = n.subscribe("joint_states", 1, left_jointstates_subCB);
   ros::Subscriber robot_target_sub=n.subscribe("/gpf/position",1,robot_target_subCB);
+  gripperPub=n.advertise<robotiq_2f_gripper_control::Robotiq2FGripper_robot_output>("/Robotiq2FGripperRobotOutput", 1);
   //TestPub = n.advertise<std_msgs::Int32MultiArray>("CohandTopic", 5);
   //grasp_finish_Pub=n.advertise<std_msgs::Int8>("grasp_finish", 1);
 
@@ -257,10 +261,12 @@ int main(int argc, char **argv)
   else {ROS_INFO("connect the server failed."); return 0;}
 
   variable_init();
+  initializeGripperMsg(gripperPub);//爪子初始化
+  //sendGripperMsg(gripperPub,0);
+
   //ros::Timer timer = n.createTimer(ros::Duration(0.1), boost::bind(&left_goal_task), true);//循环执行
   ros::MultiThreadedSpinner spinner(4);
   spinner.spin();
-
   left_client->cancelGoal();
 
   return 0;

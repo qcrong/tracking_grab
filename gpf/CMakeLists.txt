@@ -15,7 +15,6 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   sensor_msgs
   kinect2_bridge
-  robotiq_2f_gripper_control
 )
 find_package(OpenCV REQUIRED )
 ## System dependencies are found with CMake's conventions
