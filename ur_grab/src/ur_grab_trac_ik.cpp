@@ -117,6 +117,10 @@ bool left_excTrack(void)
 		ROS_WARN("Robot Err, can't reach the goal.");
 		return false;
     }
+    else{
+        std::cout<<"reach the goal."<<std::endl;
+    }
+
 
     track_num = 1;
 	return true;
@@ -198,6 +202,10 @@ void slow_move_to(KDL::Frame &_pos, double _v)	//这边没有调用
 
 void robot_target_subCB(const geometry_msgs::Transform & _position)
 {
+    static int t=1;
+    std::cout<<"receive t: "<<t<<std::endl;
+
+
     //目标物在相机坐标系下的坐标转机器人坐标系下的坐标
     Eigen::Vector3d eye_center3d, base_center3d;
     eye_center3d(0)=_position.translation.x;
@@ -216,10 +224,13 @@ void robot_target_subCB(const geometry_msgs::Transform & _position)
     _pos_.M=KDL::Rotation::Quaternion(base_quater.x(),base_quater.y(),base_quater.z(),base_quater.w());
 
 	//到达抓取点上方
-    bool state = left_insertTrack(_pos_, 5);
-	if(state) left_excTrack();
-    //ros::Duration(1).sleep();
-    sendGripperMsg(gripperPub,150); //闭合爪子
+    bool state = left_insertTrack(_pos_, 10);
+    if(state && t==1){
+        left_excTrack();
+        //ros::Duration(1).sleep();
+        sendGripperMsg(gripperPub,150); //闭合爪子
+    }
+
 }
 
 int main(int argc, char **argv)
@@ -265,9 +276,10 @@ int main(int argc, char **argv)
   //sendGripperMsg(gripperPub,0);
 
   //ros::Timer timer = n.createTimer(ros::Duration(0.1), boost::bind(&left_goal_task), true);//循环执行
-  ros::MultiThreadedSpinner spinner(4);
+  ros::MultiThreadedSpinner spinner(5);
   spinner.spin();
-  left_client->cancelGoal();
+  left_client->cancelAllGoals();
+  ros::Duration(1).sleep();
 
   return 0;
 }

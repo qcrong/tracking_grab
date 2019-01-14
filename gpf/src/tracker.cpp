@@ -1266,7 +1266,7 @@ public:
             std::cout<<"t:"<<std::endl<<t<<std::endl;
             std::cout << "-R:" << std::endl << r << std::endl;
             std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
-            if(i_t==50){
+            if(i_t>=50){
                 cv::Mat r_t=r.t();
                 pub_position(small_P3f[0],r_t);
                 std::cout<<"pub_position"<<std::endl;
