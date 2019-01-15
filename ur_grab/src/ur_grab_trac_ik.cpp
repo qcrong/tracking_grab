@@ -63,6 +63,7 @@ void left_jointstates_subCB(const sensor_msgs::JointState &JS)
             if(left_goal.trajectory.joint_names[j] == JS.name[i])
             {
                 left_curTra_Joint.positions[j] = JS.position[i];
+                //left_curTra_Joint.velocities[j]=JS.velocity[i];
             }
         }
     }
@@ -88,6 +89,7 @@ bool left_insertTrack(KDL::Frame insertPoint, float tm)
     track_num++;
     left_goal.trajectory.points.resize(track_num);
     int rc = left_track_ik_solver->CartToJnt(cur_JointArray, insertPoint, target_JointArray);
+
     if(rc <= 0)
     {
         ROS_INFO("can't reach the goal.");
@@ -95,11 +97,19 @@ bool left_insertTrack(KDL::Frame insertPoint, float tm)
         return false;
     }
 
+    double max_delta_joint=0;
     for(int i=0;i<6;i++)  
     {
         left_targetTra_Joint.positions[i] = target_JointArray(i);
         left_targetTra_Joint.velocities[i] = 0.0;
+        double delta=fabs(cur_JointArray(i)-target_JointArray(i));
+        if(max_delta_joint<delta){
+            max_delta_joint=delta;
+        }
     }
+    tm=1.0/max_delta_joint;
+    if(tm<0.01) tm=0.01;
+    std::cout<<"tm:"<<tm<<std::endl;
     left_targetTra_Joint.time_from_start = ros::Duration(tm);
     left_goal.trajectory.points[track_num-1] = left_targetTra_Joint;
     left_goal.trajectory.header.stamp = ros::Time::now();
@@ -109,13 +119,16 @@ bool left_insertTrack(KDL::Frame insertPoint, float tm)
 //执行轨迹点
 bool left_excTrack(void)
 {
+//    left_client->cancelAllGoals();
+//    ros::Duration(0.1).sleep();
     left_client->sendGoal(left_goal);
+    //ros::Duration(0.05).sleep();
     left_client->waitForResult(ros::Duration(0));
 
     if(left_client->getState() != actionlib::SimpleClientGoalState::SUCCEEDED)
     {
-		ROS_WARN("Robot Err, can't reach the goal.");
-		return false;
+        ROS_WARN("Robot Err, can't reach the goal.");
+        return false;
     }
     else{
         std::cout<<"reach the goal."<<std::endl;
@@ -223,12 +236,13 @@ void robot_target_subCB(const geometry_msgs::Transform & _position)
     _pos_.p = KDL::Vector(base_center3d(0), base_center3d(1), base_center3d(2));
     _pos_.M=KDL::Rotation::Quaternion(base_quater.x(),base_quater.y(),base_quater.z(),base_quater.w());
 
+
 	//到达抓取点上方
     bool state = left_insertTrack(_pos_, 10);
     if(state && t==1){
         left_excTrack();
         //ros::Duration(1).sleep();
-        sendGripperMsg(gripperPub,150); //闭合爪子
+        //sendGripperMsg(gripperPub,150); //闭合爪子
     }
 
 }
