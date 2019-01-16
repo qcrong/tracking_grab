@@ -1268,7 +1268,11 @@ public:
             std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
             if(i_t>=50){
                 cv::Mat r_t=r.t();
+#ifdef has_ur5
+                pub_position(small_P3f[0],r_t,base2tool0);
+#else
                 pub_position(small_P3f[0],r_t);
+#endif
                 std::cout<<"pub_position"<<std::endl;
                 //cv::waitKey(0);
                 //exit(-1);
@@ -1388,11 +1392,12 @@ int main(int argc, char** argv) {
     message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
     message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
     sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
+#ifdef has_ur5
+    position_publisher=nh.advertise<gpf::obj_tool_transform>("/gpf/position", 1, true);
+    tf2_ros::TransformListener tfListener(tfBuffer);  //获取机械臂末端在基坐标系下的位姿
+#else
     position_publisher=nh.advertise<geometry_msgs::Transform>("/gpf/position", 1, true);
-
-
-
-
+#endif
 	/*
 	cv::waitKey(1500);
 	while(get_new_I==false && ros::ok()){

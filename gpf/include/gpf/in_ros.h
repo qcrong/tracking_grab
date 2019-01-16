@@ -11,14 +11,19 @@
 #include <kinect2_bridge/kinect2_definitions.h>
 
 #include "utils.h"
+#include "ur5_base_tool.hpp"
 #include <math.h>
 #include <geometry_msgs/Transform.h>
+#include "gpf/obj_tool_transform.h"
 
 cv_bridge::CvImagePtr cv_ptr;
 cv::Mat I_ORI;  //RGB
 cv::Mat I_ORI_DEPTH; //深度图
 bool get_new_I=false; //获得新图片
 ros::Publisher position_publisher;
+#ifdef has_ur5
+    geometry_msgs::Transform base2tool0;
+#endif
 
 struct img_point{
 	cv::Mat image;
@@ -74,8 +79,13 @@ void RecognitionCallback(const sensor_msgs::ImageConstPtr image_rgb, const senso
 		ROS_ERROR("cv_bridge exception: %s", e.what());
 		return;
 	}
-	I_ORI=cv_ptr->image;
-	get_new_I=true;
+    I_ORI=cv_ptr->image;
+#ifdef has_ur5
+    get_new_I=getPose(tfBuffer,base2tool0);
+#else
+    get_new_I=true;
+#endif
+
   	//I_ORI = cv_bridge::toCvShare(image_rgb,"mono8")->image;
   	//I_ORI_DEPTH = cv_bridge::toCvShare(image_depth)->image;
 }
@@ -143,6 +153,7 @@ void mouse(int event, int x, int y, int flags, void* param){
 	
 }
 
+//发布相机坐标系到目标无坐标系的变换关系
 void pub_position(cv::Mat &_T,cv::Mat &_R){
     geometry_msgs::Transform position;
     position.translation.x=_T.at<float>(0,0);
@@ -162,3 +173,27 @@ void pub_position(cv::Mat &_T,cv::Mat &_R){
     position.rotation.w=quate_r.w();
     position_publisher.publish(position);
 }
+//发布相机坐标系到目标无坐标系的变换关系和机器人基座标系到末端坐标系的变换关系
+void pub_position(cv::Mat &_T,cv::Mat &_R,geometry_msgs::Transform &base2tool0_){
+    gpf::obj_tool_transform pub_msg;
+    geometry_msgs::Transform position;
+    pub_msg.cam2obj.translation.x=_T.at<float>(0,0);
+    pub_msg.cam2obj.translation.y=_T.at<float>(0,1);
+    pub_msg.cam2obj.translation.z=_T.at<float>(0,2);
+
+    Eigen::Matrix3d r;
+    for(int i=0;i<3;i++){
+        for(int j=0;j<3;j++){
+            r(i,j)=_R.at<float>(i,j);
+        }
+    }
+    Eigen::Quaterniond quate_r(r);
+    pub_msg.cam2obj.rotation.x=quate_r.x();
+    pub_msg.cam2obj.rotation.y=quate_r.y();
+    pub_msg.cam2obj.rotation.z=quate_r.z();
+    pub_msg.cam2obj.rotation.w=quate_r.w();
+
+    pub_msg.base2tool0=base2tool0_;
+    position_publisher.publish(pub_msg);
+}
+

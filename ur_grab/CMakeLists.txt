@@ -15,10 +15,11 @@ find_package(catkin REQUIRED COMPONENTS
   trajectory_msgs
   actionlib  
   control_msgs
-  tf
+  tf2_ros
   robotiq_2f_gripper_control
+  gpf
 )
-
+find_package(OpenCV REQUIRED )
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -226,4 +227,14 @@ add_dependencies( robotiq_gripper_test
   ${catkin_EXPORTED_TARGETS}
 )
 
+add_executable(ur_grab_pbvs
+  src/ur_grab_pbvs.cpp
+)
+target_link_libraries(ur_grab_pbvs
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
+)
+add_dependencies( ur_grab_pbvs
+  ${catkin_EXPORTED_TARGETS}
+)
 
