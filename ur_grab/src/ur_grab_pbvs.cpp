@@ -1,4 +1,4 @@
-#include <ros/ros.h>
+ï»¿#include <ros/ros.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <sensor_msgs/JointState.h>
 #include <geometry_msgs/Pose.h>
@@ -14,26 +14,28 @@
 ros::Publisher gripperPub;
 ros::Publisher tool_vel_pub;
 
-//ÊÖÑÛ¹ØÏµ
+//æ‰‹çœ¼å…³ç³»
 Eigen::Matrix3d base2eye_r;
 Eigen::Vector3d base2eye_t;
 Eigen::Quaterniond base2eye_q;
 
 Eigen::Vector3d hand2tool0_t;
+//pbvsé€Ÿåº¦ç³»æ•°
+float lambda=0.8;
 
-//¶ÁÈ¡µ±Ç°¹Ø½ÚÎ»ÖÃĞÅÏ¢
+//è¯»å–å½“å‰å…³èŠ‚ä½ç½®ä¿¡æ¯
 void variable_init(void)
 {
-    base2eye_r<<0.9978181985477985, 0.05899849817026713, -0.02963139990753466,
-                0.06178207154344488, -0.6761810618174333, 0.734140413868662,
-                0.02327699041173496, -0.7343693545165834, -0.67835081842972;
+    base2eye_r<<0.9978853052344744, 0.0624554310492981, 0.01800657462002214,
+    0.02686357380261298, -0.6485353310763069, 0.760710373761458,
+    0.05918839412969124, -0.7586179825697468, -0.6488416528877879;
 
-    base2eye_t<<0.01787618021554105,-1.471458374882839,0.735535095875542;
+    base2eye_t<<0.1336729116921138,-1.47128914495966,0.5485319799462607;
     base2eye_q=base2eye_r;
-    hand2tool0_t<<0,0,-0.2;
+    hand2tool0_t<<0,0,-0.25;
 }
 
-//²åÈë¹ì¼£µã
+//å‘å¸ƒæœ«ç«¯é€Ÿåº¦
 void cmd_tool_vel_pub(geometry_msgs::Twist &toolVel_, double time=0){
     tool_vel_pub.publish(toolVel_);
 
@@ -51,36 +53,48 @@ void cmd_tool_vel_pub(geometry_msgs::Twist &toolVel_, double time=0){
     }
     //ros::Duration(0.1).sleep();
 }
+void cmd_tool_stoop_pub(){
+    geometry_msgs::Twist vel;
+    vel.linear.x=0;
+    vel.linear.y=0;
+    vel.linear.z=0;
+    vel.angular.x=0;
+    vel.angular.y=0;
+    vel.angular.z=0;
+    tool_vel_pub.publish(vel);
+}
 
 
 void robot_target_subCB(const gpf::obj_tool_transform &transform_)
 {
-    //Ä¿±êÎïÔÚÏà»ú×ø±êÏµÏÂµÄ×ø±ê×ª»úÆ÷ÈË×ø±êÏµÏÂµÄ×ø±ê
+    //ç›®æ ‡ç‰©åœ¨ç›¸æœºåæ ‡ç³»ä¸‹çš„åæ ‡è½¬æœºå™¨äººåæ ‡ç³»ä¸‹çš„åæ ‡
     Eigen::Vector3d eye_center3d, bTtd;
     eye_center3d(0)=transform_.cam2obj.translation.x;
     eye_center3d(1)=transform_.cam2obj.translation.y;
     eye_center3d(2)=transform_.cam2obj.translation.z;
 
-    bTtd=base2eye_r*eye_center3d+base2eye_t;//Ä¿±ê×ª»»µ½»ù×ù±êÏµÏÂ
+    bTtd=base2eye_r*eye_center3d+base2eye_t;//ç›®æ ‡è½¬æ¢åˆ°åŸºåº§æ ‡ç³»ä¸‹
     Eigen::Quaterniond bRtd_q(transform_.cam2obj.rotation.w, transform_.cam2obj.rotation.x, transform_.cam2obj.rotation.y, transform_.cam2obj.rotation.z);//eye2obj
     bRtd_q=base2eye_q*bRtd_q;
-    bTtd=bRtd_q*hand2tool0_t+bTtd;//¿¼ÂÇÊÖ×¥Æ«ÒÆ
+    bTtd=bRtd_q*hand2tool0_t+bTtd;//è€ƒè™‘æ‰‹æŠ“åç§»
 
     std::cout<<"bTtd "<<bTtd(0)<<" "<<bTtd(1)<<" "<<bTtd(2)<<" "<<std::endl;
     std::cout<<"bRtd_q "<<bRtd_q.x()<<" "<<bRtd_q.y()<<" "<<bRtd_q.z()<<" "<<bRtd_q.w()<<" "<<std::endl;
 
-    //»úĞµ±ÛÄ©¶Ë×ø±êÏµtool0ÔÚ»ù×ù±êÏµbaseÏÂµÄÎ»×Ë
+    //æœºæ¢°è‡‚æœ«ç«¯åæ ‡ç³»tool0åœ¨åŸºåº§æ ‡ç³»baseä¸‹çš„ä½å§¿
     Eigen::Vector3d bTt;
     bTt(0)=transform_.base2tool0.translation.x;
     bTt(1)=transform_.base2tool0.translation.y;
     bTt(2)=transform_.base2tool0.translation.z;
     Eigen::Quaterniond bRt_q(transform_.base2tool0.rotation.w, transform_.base2tool0.rotation.x, transform_.base2tool0.rotation.y, transform_.base2tool0.rotation.z);
-    //×ª»»µ½Ä©¶ËÀíÏëÎ»×Ë×ø±êÏµÏÂ
+    std::cout<<"bTt "<<bTt(0)<<" "<<bTt(1)<<" "<<bTt(2)<<" "<<std::endl;
+    std::cout<<"bRt_q "<<bRt_q.x()<<" "<<bRt_q.y()<<" "<<bRt_q.z()<<" "<<bRt_q.w()<<" "<<std::endl;
+    //è½¬æ¢åˆ°æœ«ç«¯ç†æƒ³ä½å§¿åæ ‡ç³»ä¸‹
     Eigen::Quaterniond tdRb=bRtd_q.inverse();
     Eigen::Quaterniond tRtd_q=bRt_q.inverse()*bRtd_q;
     Eigen::Vector3d tdTt=tdRb*bTt-tdRb*bTtd;
-
-    //Öá½Ç
+    std::cout<<"tdTt"<<tdTt<<std::endl;
+    //è½´è§’
     Eigen::AngleAxisd tdRt_tu(tRtd_q.inverse());
     std::cout<<"tdRt_tu angle"<<tdRt_tu.angle()<<std::endl;
     std::cout<<"tdRt_tu axis"<<tdRt_tu.axis()<<std::endl;
@@ -95,17 +109,42 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     cv::Rodrigues(tdRt_mat,tdRt_tu_m);
     std::cout<<"tdRt_tu_m"<<tdRt_tu_m<<std::endl;
 	
-    //ËÙ¶È×ª»»µ½»ù×ù±êÏµÏÂ
+
+    //é€Ÿåº¦è®¡ç®—,æ¢åˆ°åŸºåº§æ ‡ç³»ä¸‹
+    //è½´è§’
+    Eigen::Vector3d v=-lambda*(tRtd_q*tdTt);
+    Eigen::Vector3d tdRt_tu_eigen=tdRt_tu.axis();
+    std::cout<<"tdRt_tu_eigen axis: "<<tdRt_tu_eigen<<std::endl;
+    tdRt_tu_eigen=tdRt_tu.angle()*tdRt_tu_eigen;
+    std::cout<<"tdRt_tu_eigen axis*angle: "<<tdRt_tu_eigen<<std::endl;
+    Eigen::Vector3d w=-lambda*tdRt_tu_eigen;
+    std::cout<<"v: "<<v<<std::endl;
+    std::cout<<"w: "<<w<<std::endl;
+    v=bRt_q*v;
+    w=bRt_q*w;
+    std::cout<<"base_v: "<<v<<std::endl;
+    std::cout<<"base_w: "<<w<<std::endl;
+    //opencv
+    Eigen::Vector3d tdRt_tu_opencv;
+    tdRt_tu_opencv(0)=tdRt_tu_m.at<float>(0,0);
+    tdRt_tu_opencv(1)=tdRt_tu_m.at<float>(0,1);
+    tdRt_tu_opencv(2)=tdRt_tu_m.at<float>(0,2);
+    std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
+    Eigen::Vector3d w_opencv=-lambda*tdRt_tu_opencv;
+    std::cout<<"w_opencv: "<<w_opencv<<std::endl;
+    w_opencv=bRt_q*w_opencv;
+    std::cout<<"base_w_opencv: "<<w_opencv<<std::endl<<std::endl<<std::endl;
+
     
-    //ËÙ¶È·¢²¼
-//    geometry_msgs::Twist toolVel;
-//    toolVel.linear.x=;
-//    toolVel.linear.y=;
-//    toolVel.linear.z=;
-//    toolVel.angular.x=;
-//    toolVel.angular.y=;
-//    toolVel.angular.z=;
-//    tool_vel_pub(toolVel);
+    //é€Ÿåº¦å‘å¸ƒ
+    geometry_msgs::Twist toolVel;
+    toolVel.linear.x=v(0);
+    toolVel.linear.y=v(1);
+    toolVel.linear.z=v(2);
+    toolVel.angular.x=w_opencv(0);
+    toolVel.angular.y=w_opencv(1);
+    toolVel.angular.z=w_opencv(2);
+    cmd_tool_vel_pub(toolVel);
 
 }
 
@@ -116,18 +155,20 @@ int main(int argc, char **argv)
   ros::NodeHandle n;
   ros::Subscriber robot_target_sub=n.subscribe("/gpf/position",1,robot_target_subCB);
   gripperPub=n.advertise<robotiq_2f_gripper_control::Robotiq2FGripper_robot_output>("/Robotiq2FGripperRobotOutput", 1);
-  tool_vel_pub = n.advertise<geometry_msgs::Twist>("/ur_arm_controller/cmd_tool_vel", 1);  //ur_armËÙ¶È¿ØÖÆ
+  tool_vel_pub = n.advertise<geometry_msgs::Twist>("/ur_arm_controller/cmd_tool_vel", 1);  //ur_armé€Ÿåº¦æ§åˆ¶
 
   tf2_ros::Buffer tfBuffer;
-  tf2_ros::TransformListener tfListener(tfBuffer);  //»ñÈ¡base×ø±êÏµÏÂtool0µÄÎ»×Ë
+  tf2_ros::TransformListener tfListener(tfBuffer);  //è·å–baseåæ ‡ç³»ä¸‹tool0çš„ä½å§¿
 
   variable_init();
-  initializeGripperMsg(gripperPub);//ÊÖ×¥³õÊ¼»¯
+  initializeGripperMsg(gripperPub);//æ‰‹æŠ“åˆå§‹åŒ–
   //sendGripperMsg(gripperPub,0);
 
   //ros::Timer timer = n.createTimer(ros::Duration(0.1), boost::bind(&left_goal_task), true);
   ros::MultiThreadedSpinner spinner(2);
   spinner.spin();
 
+  cmd_tool_stoop_pub();
+  ros::Duration(0.3).sleep();
   return 0;
 }

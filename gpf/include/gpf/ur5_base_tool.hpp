@@ -3,7 +3,7 @@
 #include <geometry_msgs/Transform.h>
 #include <Eigen/Eigen>
 
-//#define has_ur5 //是否链接ur5
+#define has_ur5 //是否链接ur5
 
 
 #ifdef has_ur5
