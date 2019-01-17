@@ -1177,34 +1177,34 @@ public:
 			small_P3f[i]=temp_point.clone();
 		}
         //输出缩小后的四个点在相机坐标系下的坐标
-        std::cout<<std::endl;
-        std::cout<<"4 points of camera fram"<<std::endl;
-        for(int i=0;i<4;i++)
-        {
-            std::cout<<small_P3f[i]<<std::endl;
-        }
+        //std::cout<<std::endl;
+        //std::cout<<"4 points of camera fram"<<std::endl;
+//        for(int i=0;i<4;i++)
+//        {
+//            std::cout<<small_P3f[i]<<std::endl;
+//        }
 		if(depth_avail){
 			std::vector<cv::Mat> obj_xyz(3);//物体坐标系
 			obj_xyz[0]=small_P3f[far_point]-small_P3f[0];
 			cv::normalize(obj_xyz[0],obj_xyz[0]);
-            std::cout<<"obj_xyz[0] normalize"<<std::endl<<obj_xyz[0]<<std::endl;
+            //std::cout<<"obj_xyz[0] normalize"<<std::endl<<obj_xyz[0]<<std::endl;
 
 			if(near_point<0){
                 obj_xyz[1]=small_P3f[-near_point]-small_P3f[0];
 				obj_xyz[2]=obj_xyz[1].cross(obj_xyz[0]);
-                std::cout<<"near_point<0"<<std::endl;
+                //std::cout<<"near_point<0"<<std::endl;
 			}
 			else{
 				obj_xyz[1]=small_P3f[near_point]-small_P3f[0];
 				obj_xyz[2]=obj_xyz[0].cross(obj_xyz[1]);
-                std::cout<<"near_point>0"<<std::endl;
+                //std::cout<<"near_point>0"<<std::endl;
 			}
 			cv::normalize(obj_xyz[2],obj_xyz[2]);
-            std::cout<<"obj_xyz[2] normalize"<<std::endl<<obj_xyz[2]<<std::endl;
+            //std::cout<<"obj_xyz[2] normalize"<<std::endl<<obj_xyz[2]<<std::endl;
 
 			obj_xyz[1]=obj_xyz[2].cross(obj_xyz[0]);
 			cv::normalize(obj_xyz[1],obj_xyz[1]);
-            std::cout<<"obj_xyz[1] normalize"<<std::endl<<obj_xyz[1]<<std::endl;
+            //std::cout<<"obj_xyz[1] normalize"<<std::endl<<obj_xyz[1]<<std::endl;
 
             /*********求解RT**********/
             //投影到物体坐标系
@@ -1219,7 +1219,7 @@ public:
 				obj_mean.at<float>(0,1)+=obj_points.at<float>(i,1);
 				obj_mean.at<float>(0,2)+=obj_points.at<float>(i,2);
 			}
-            std::cout<<"obj_points"<<std::endl<<obj_points<<std::endl;
+            //std::cout<<"obj_points"<<std::endl<<obj_points<<std::endl;
 			obj_mean/=4;
 			for(int i=0;i<4;i++){
 				obj_points.at<float>(i,0)-=obj_mean.at<float>(0,0);
@@ -1237,7 +1237,7 @@ public:
 				cam_mean.at<float>(0,1)+=cam_points.at<float>(1,j);
 				cam_mean.at<float>(0,2)+=cam_points.at<float>(2,j);
 			}
-            std::cout<<"cam_points"<<std::endl<<cam_points<<std::endl;
+            //std::cout<<"cam_points"<<std::endl<<cam_points<<std::endl;
 			cam_mean/=4;
 			for(int j=0;j<4;j++){
 				cam_points.at<float>(0,j)-=cam_mean.at<float>(0,0);
@@ -1246,7 +1246,7 @@ public:
 			}
 		
 			cv::Mat H=cam_points*obj_points;
-            std::cout << "-H:" << std::endl << H << std::endl;
+            //std::cout << "-H:" << std::endl << H << std::endl;
 			// svd(H)
 			cv::Mat u, v, s;
 			cv::SVD::compute(H, s, u, v); //这里求得的v是vt
@@ -1256,16 +1256,16 @@ public:
 			//std::cerr << "- v: " << v << std::endl;
 			cv::Mat r=v*u.t();
 			if(cv::determinant(r)<0){
-				std::cout<<"reflection detected"<<std::endl;
+                //std::cout<<"reflection detected"<<std::endl;
 				v.at<float>(0,2)*=-1;
 				v.at<float>(1,2)*=-1;
 				v.at<float>(2,2)*=-1;
 				r=v*u.t();
 			}
             cv::Mat t=r*cam_mean+obj_mean;
-            std::cout<<"t:"<<std::endl<<t<<std::endl;
-            std::cout << "-R:" << std::endl << r << std::endl;
-            std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
+            //std::cout<<"t:"<<std::endl<<t<<std::endl;
+            //std::cout << "-R:" << std::endl << r << std::endl;
+            //std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
             if(i_t>=50){
                 cv::Mat r_t=r.t();
 #ifdef has_ur5
@@ -1273,7 +1273,7 @@ public:
 #else
                 pub_position(small_P3f[0],r_t);
 #endif
-                std::cout<<"pub_position"<<std::endl;
+                //std::cout<<"pub_position"<<std::endl;
                 //cv::waitKey(0);
                 //exit(-1);
             }

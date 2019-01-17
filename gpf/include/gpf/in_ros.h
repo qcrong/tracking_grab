@@ -132,8 +132,8 @@ bool get_template_poly_pnts(const cv::Mat &frame, std::vector<float> &template_x
 		near_point_=-near_point_;
 	}
 	
-	std::cout<<"far_point_: "<<far_point_<<std::endl;
-	std::cout<<"near_point_: "<<near_point_<<std::endl;
+    //std::cout<<"far_point_: "<<far_point_<<std::endl;
+    //std::cout<<"near_point_: "<<near_point_<<std::endl;
 	
 
     cv::destroyWindow(win_name);

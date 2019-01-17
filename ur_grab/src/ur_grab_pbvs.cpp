@@ -78,8 +78,8 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     bRtd_q=base2eye_q*bRtd_q;
     bTtd=bRtd_q*hand2tool0_t+bTtd;//考虑手抓偏移
 
-    std::cout<<"bTtd "<<bTtd(0)<<" "<<bTtd(1)<<" "<<bTtd(2)<<" "<<std::endl;
-    std::cout<<"bRtd_q "<<bRtd_q.x()<<" "<<bRtd_q.y()<<" "<<bRtd_q.z()<<" "<<bRtd_q.w()<<" "<<std::endl;
+    //std::cout<<"bTtd "<<bTtd(0)<<" "<<bTtd(1)<<" "<<bTtd(2)<<" "<<std::endl;
+    //std::cout<<"bRtd_q "<<bRtd_q.x()<<" "<<bRtd_q.y()<<" "<<bRtd_q.z()<<" "<<bRtd_q.w()<<" "<<std::endl;
 
     //机械臂末端坐标系tool0在基座标系base下的位姿
     Eigen::Vector3d bTt;
@@ -87,17 +87,17 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     bTt(1)=transform_.base2tool0.translation.y;
     bTt(2)=transform_.base2tool0.translation.z;
     Eigen::Quaterniond bRt_q(transform_.base2tool0.rotation.w, transform_.base2tool0.rotation.x, transform_.base2tool0.rotation.y, transform_.base2tool0.rotation.z);
-    std::cout<<"bTt "<<bTt(0)<<" "<<bTt(1)<<" "<<bTt(2)<<" "<<std::endl;
-    std::cout<<"bRt_q "<<bRt_q.x()<<" "<<bRt_q.y()<<" "<<bRt_q.z()<<" "<<bRt_q.w()<<" "<<std::endl;
+    //std::cout<<"bTt "<<bTt(0)<<" "<<bTt(1)<<" "<<bTt(2)<<" "<<std::endl;
+    //std::cout<<"bRt_q "<<bRt_q.x()<<" "<<bRt_q.y()<<" "<<bRt_q.z()<<" "<<bRt_q.w()<<" "<<std::endl;
     //转换到末端理想位姿坐标系下
     Eigen::Quaterniond tdRb=bRtd_q.inverse();
     Eigen::Quaterniond tRtd_q=bRt_q.inverse()*bRtd_q;
     Eigen::Vector3d tdTt=tdRb*bTt-tdRb*bTtd;
-    std::cout<<"tdTt"<<tdTt<<std::endl;
+    //std::cout<<"tdTt"<<tdTt<<std::endl;
     //轴角
     Eigen::AngleAxisd tdRt_tu(tRtd_q.inverse());
-    std::cout<<"tdRt_tu angle"<<tdRt_tu.angle()<<std::endl;
-    std::cout<<"tdRt_tu axis"<<tdRt_tu.axis()<<std::endl;
+    //std::cout<<"tdRt_tu angle"<<tdRt_tu.angle()<<std::endl;
+    //std::cout<<"tdRt_tu axis"<<tdRt_tu.axis()<<std::endl;
     //opencv
     Eigen::Matrix3d tdRt_m(tRtd_q.inverse());
     cv::Mat tdRt_mat(3,3,CV_32F);
@@ -107,33 +107,34 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
         }
     cv::Mat tdRt_tu_m;
     cv::Rodrigues(tdRt_mat,tdRt_tu_m);
-    std::cout<<"tdRt_tu_m"<<tdRt_tu_m<<std::endl;
+    //std::cout<<"tdRt_tu_m"<<tdRt_tu_m<<std::endl;
 	
 
     //速度计算,换到基座标系下
     //轴角
     Eigen::Vector3d v=-lambda*(tRtd_q*tdTt);
-    Eigen::Vector3d tdRt_tu_eigen=tdRt_tu.axis();
-    std::cout<<"tdRt_tu_eigen axis: "<<tdRt_tu_eigen<<std::endl;
-    tdRt_tu_eigen=tdRt_tu.angle()*tdRt_tu_eigen;
-    std::cout<<"tdRt_tu_eigen axis*angle: "<<tdRt_tu_eigen<<std::endl;
-    Eigen::Vector3d w=-lambda*tdRt_tu_eigen;
-    std::cout<<"v: "<<v<<std::endl;
-    std::cout<<"w: "<<w<<std::endl;
-    v=bRt_q*v;
-    w=bRt_q*w;
-    std::cout<<"base_v: "<<v<<std::endl;
-    std::cout<<"base_w: "<<w<<std::endl;
+    //Eigen::Vector3d tdRt_tu_eigen=tdRt_tu.axis();
+    //std::cout<<"tdRt_tu_eigen axis: "<<tdRt_tu_eigen<<std::endl;
+    //tdRt_tu_eigen=tdRt_tu.angle()*tdRt_tu_eigen;
+    //std::cout<<"tdRt_tu_eigen axis*angle: "<<tdRt_tu_eigen<<std::endl;
+    //Eigen::Vector3d w=-lambda*tdRt_tu_eigen;
+    //std::cout<<"v: "<<v<<std::endl;
+    //std::cout<<"w: "<<w<<std::endl;
+
+    //w=bRt_q*w;
+    //std::cout<<"base_v: "<<v<<std::endl;
+    //std::cout<<"base_w: "<<w<<std::endl;
     //opencv
     Eigen::Vector3d tdRt_tu_opencv;
     tdRt_tu_opencv(0)=tdRt_tu_m.at<float>(0,0);
     tdRt_tu_opencv(1)=tdRt_tu_m.at<float>(0,1);
     tdRt_tu_opencv(2)=tdRt_tu_m.at<float>(0,2);
-    std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
+    //std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
     Eigen::Vector3d w_opencv=-lambda*tdRt_tu_opencv;
-    std::cout<<"w_opencv: "<<w_opencv<<std::endl;
+    //std::cout<<"w_opencv: "<<w_opencv<<std::endl;
+    v=bRt_q*v;
     w_opencv=bRt_q*w_opencv;
-    std::cout<<"base_w_opencv: "<<w_opencv<<std::endl<<std::endl<<std::endl;
+    //std::cout<<"base_w_opencv: "<<w_opencv<<std::endl<<std::endl<<std::endl;
 
     
     //速度发布
