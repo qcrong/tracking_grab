@@ -36,6 +36,7 @@ void rosinit(int argc, char** argv);
 void rosimage2opencv(const sensor_msgs::ImageConstPtr& msg);//订阅相机图像，并转换为opencv格式
 void RecognitionCallback(const sensor_msgs::ImageConstPtr image_rgb, const sensor_msgs::ImageConstPtr image_depth);
 bool get_template_poly_pnts(const cv::Mat &frame, std::vector<float> &template_xs, std::vector<float> &template_ys);
+bool get_template_poly_pnts(const cv::Mat &cur_frame, const cv::Mat &des_frame,std::vector<float> &template_xs, std::vector<float> &template_ys);
 void mouse(int event, int x, int y, int flags, void* param);
 void pub_position(cv::Mat &_T,cv::Mat &_R);
 

@@ -49,6 +49,8 @@ public:
 		std::string obs_mdl_type;	//obs_mdl选用类型：SSD或者onlinePCA
 		SSDParams ssd_params; //R_SSSD
 		PCAParams pca_params;
+
+        std::string template_img_dir; //path of template image
 	};
 	struct State {
 		cv::Mat X;
@@ -831,36 +833,15 @@ private:
 				break;
 			}
 		}
-		// template_xys   
-		/*
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				// xs
-				{
-					std::istringstream iss(line);
-					std::vector<float> template_xs;
-					float tmp;
-					while (iss >> tmp)
-					{
-						template_xs.push_back(tmp);
-						//std::cout<<tmp<<std::endl;
-					}
-					params_.template_xs = template_xs;
-				}
-				// ys
-				{
-				std::getline(conf_file, line);
-				std::istringstream iss(line);
-				std::vector<float> template_ys;
-				float tmp;
-				while (iss >> tmp)
-					template_ys.push_back(tmp);
-				params_.template_ys = template_ys;
-				}
-				break;
-			}
-		}*/
+        //path of template image
+        while (getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.template_img_dir= line;
+                break;
+            }
+        }
+
 	}
 
 public:
@@ -907,7 +888,6 @@ public:
 		}	
 		get_new_I=false;
 		I_ORI.convertTo(i_inputs.I, CV_32F, 1.0 / 255.0);//把一个矩阵从一种数据类型转换到另一种数据类型，这里是对图像像素值归一化
-
 	}	
 	
 
@@ -1398,19 +1378,6 @@ int main(int argc, char** argv) {
 #else
     position_publisher=nh.advertise<geometry_msgs::Transform>("/gpf/position", 1, true);
 #endif
-	/*
-	cv::waitKey(1500);
-	while(get_new_I==false && ros::ok()){
-		ros::spinOnce();
-	}	
-	get_new_I=false;
-	
-	ros::spinOnce();
-	cv::waitKey(1500);
-	if (I_ORI.empty())
-	{
-		return 0;
-	}*/
 	
 	std::string file=argv[1];//std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
 	//std::string file = std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
