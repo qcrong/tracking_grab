@@ -1390,7 +1390,7 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh;
     message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
     message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
-    message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
+    message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 15);//这个值不能改太小，否则帧率可能突降
     sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
 #ifdef has_ur5
     position_publisher=nh.advertise<gpf::obj_tool_transform>("/gpf/position", 1, true);
