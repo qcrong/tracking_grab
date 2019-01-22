@@ -1329,7 +1329,7 @@ public:
 
 	void Run() {
 		// track
-		for (int t = params_.start_frame; t <= params_.end_frame && ros::ok(); ++t) {
+        for (unsigned int t = 1; ros::ok(); t++) {
 			std::string fn_out = params_.id + std::string("/") + std::to_string(t) + std::string(".png"); //输出图片文件路径和文件名
 			//std::cout<<"fn_out:"<<fn_out<<std::endl;
 			Tracker::Inputs I;  //像素归一化后的图像
@@ -1343,10 +1343,11 @@ public:
 			//cv::waitKey(0);
 
 			cv::Mat X_opt;
-			if (t == params_.init_frame){
+            if (t == 1){
                 if(!autoget_template_poly_pnts(params_.I_template_conners,params_.template_xs, params_.template_ys, far_point, near_point)){
                     std::cout<<"get_template_poly_pnts ellor"<<std::endl;
-                    return;
+                    t=0;
+                    continue;
                 }
 //                if(get_template_poly_pnts(params_.template_xs, params_.template_ys, far_point, near_point)==false){
 //					std::cout<<"get_template_poly_pnts ellor"<<std::endl;
@@ -1380,7 +1381,7 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh;
     message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
     message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
-    message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 1);
+    message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
     sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
     colorimg_sub=nh.subscribe("/kinect2/qhd/image_color_rect",1,colorimgSubCallback);
 #ifdef has_ur5

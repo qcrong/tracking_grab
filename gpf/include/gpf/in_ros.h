@@ -231,12 +231,11 @@ bool load_template_params(const std::string &template_img_dir_,std::vector<cv::P
 }
 
 //自动获取目标四个顶点
-bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conners_,std::vector<float> &template_xs, std::vector<float> &template_ys, int &far_point_, int &near_point_, bool showimage=1){
+bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conners_,std::vector<float> &template_xs, std::vector<float> &template_ys, int &far_point_, int &near_point_, bool showimage=0){
     while(get_new_RGBI==false && ros::ok()){
         ros::spinOnce();
     }
     get_new_RGBI=false;
-    colorimg_sub.shutdown();//取消彩图订阅
     //提取特征点
     std::vector<cv::KeyPoint> curimg_keypoints;
     feature->detect(I_ORI_RGB,curimg_keypoints);
@@ -281,6 +280,7 @@ bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conne
         }
         if(n_good_matchs>=8){
             std::cout<<"numbers of good matchs: "<<n_good_matchs<<std::endl;
+            colorimg_sub.shutdown();//取消彩图订阅
             /*映射获得当前图像中目标物的四个顶点*/
             cv::Mat cur_conners;
             perspectiveTransform(cv::Mat(I_template_conners_), cur_conners, Htc);
