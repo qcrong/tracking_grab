@@ -38,8 +38,9 @@ public:
 		//optimization settings
 		int n_particles;
 
-		std::vector<float> template_xs;  //模板4个角点x坐标
-		std::vector<float> template_ys;	 //模板4个角点y坐标
+        std::vector<float> template_xs;  //模板对应当前图像的4个角点x坐标
+        std::vector<float> template_ys;	 //模板对应当前图像的4个角点y坐标
+        std::vector<cv::Point2f> I_template_conners;//模板图像四个顶点
 		STATE_DOMAIN state_domain;		//状态变量
 		std::vector<cv::Mat> E;			//Ei 6X3X3
 		cv::Mat P;	//以state_sigs的平方为对角线的矩阵
@@ -91,7 +92,8 @@ private:
 	double camera_fx;
 	double camera_fy;
 	//长边编号和短边编号
-	int far_point, near_point;	
+    int far_point, near_point;
+
 private:
 	void warp_template(const cv::Mat &i_I, const cv::Mat &i_X, const cv::Mat &i_template_pnts, cv::Mat &o_warped_I) {
 		// warp（弯曲，使变形） points
@@ -848,11 +850,15 @@ public:
 	Tracker(const std::string &i_conf_fn) {
 		load_params(i_conf_fn);
 		//std::cout<<"load successed"<<std::endl;
+        if (load_template_params(params_.template_img_dir,params_.I_template_conners)==false){
+            exit(-1);
+        }
 		camera_factor = 1000;
 		camera_cx = 482.45643;
 		camera_cy = 275.98007;
 		camera_fx = 533.30794;
 		camera_fy = 533.26216;
+
 	}
 	Tracker(const Tracker::Params &i_params) {
 		params_ = i_params;
@@ -1338,10 +1344,14 @@ public:
 
 			cv::Mat X_opt;
 			if (t == params_.init_frame){
-				if(get_template_poly_pnts(I_ORI, params_.template_xs, params_.template_ys, far_point, near_point)==false){
-					std::cout<<"get_template_poly_pnts ellor"<<std::endl;
-					return;
-				}
+                if(!autoget_template_poly_pnts(params_.I_template_conners,params_.template_xs, params_.template_ys, far_point, near_point)){
+                    std::cout<<"get_template_poly_pnts ellor"<<std::endl;
+                    return;
+                }
+//                if(get_template_poly_pnts(params_.template_xs, params_.template_ys, far_point, near_point)==false){
+//					std::cout<<"get_template_poly_pnts ellor"<<std::endl;
+//					return;
+//				}
 				/*
 				std::cout<<"params_.template_xs: ";
 				for(int i=0;i<params_.template_xs.size();i++){
@@ -1370,13 +1380,15 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh;
     message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
     message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
-    message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
+    message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 1);
     sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
+    colorimg_sub=nh.subscribe("/kinect2/qhd/image_color_rect",1,colorimgSubCallback);
 #ifdef has_ur5
     position_publisher=nh.advertise<gpf::obj_tool_transform>("/gpf/position", 1, true);
     tf2_ros::TransformListener tfListener(tfBuffer);  //获取机械臂末端在基坐标系下的位姿
 #else
     position_publisher=nh.advertise<geometry_msgs::Transform>("/gpf/position", 1, true);
+
 #endif
 	
 	std::string file=argv[1];//std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
@@ -1385,5 +1397,7 @@ int main(int argc, char** argv) {
 	
 
 	tracker.Run();
+    feature.release();
+    descript.release();
 	return 0;
 }
