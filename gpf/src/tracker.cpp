@@ -1020,8 +1020,8 @@ public:
 
                 cv::Mat I_ORI_init=I_ORI.clone();
                 for(int i=0;i<n_features;i++){
-                    r_ind.at<float>(0,i)=init_frame_features.at<float>(i,0)-x_mean[0];
-                    c_ind.at<float>(0,i)=init_frame_features.at<float>(i,1)-y_mean[0];
+                    r_ind.at<float>(0,i)=init_frame_features.at<float>(i,1)-y_mean[0];
+                    c_ind.at<float>(0,i)=init_frame_features.at<float>(i,0)-x_mean[0];
                     cv::circle(I_ORI_init,cv::Point(init_frame_features.at<float>(i,0),init_frame_features.at<float>(i,1)),1,cv::Scalar(255));
                     //I_ORI_init.at<unsigned char>(init_frame_features.at<float>(i,1),init_frame_features.at<float>(i,0))=255;
                 }

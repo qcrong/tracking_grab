@@ -234,7 +234,7 @@ bool load_template_params(const std::string &template_img_dir_,std::vector<cv::P
     cv::blur(gray,edge,cv::Size(3,3));//降噪
     cv::Canny(edge,edge,20,60,3);
     cv::imshow("edge canny",edge);
-    cv::Mat element=cv::getStructuringElement(cv::MORPH_RECT,cv::Size(7,7));//获取自定义核
+    cv::Mat element=cv::getStructuringElement(cv::MORPH_RECT,cv::Size(5,5));//获取自定义核
     cv::dilate(edge,edge,element);//膨胀，扩大两区域
     cv::imshow("edge dilate",edge);
     cv::imshow("template",I_template);
