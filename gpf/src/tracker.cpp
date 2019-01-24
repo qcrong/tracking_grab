@@ -41,6 +41,7 @@ public:
         std::vector<float> template_xs;  //模板对应当前图像的4个角点x坐标
         std::vector<float> template_ys;	 //模板对应当前图像的4个角点y坐标
         std::vector<cv::Point2f> I_template_conners;//模板图像四个顶点
+        std::vector<cv::Point2f> I_template_features;//模板图像中用于匹配的特征点
 		STATE_DOMAIN state_domain;		//状态变量
 		std::vector<cv::Mat> E;			//Ei 6X3X3
 		cv::Mat P;	//以state_sigs的平方为对角线的矩阵
@@ -850,7 +851,7 @@ public:
 	Tracker(const std::string &i_conf_fn) {
 		load_params(i_conf_fn);
 		//std::cout<<"load successed"<<std::endl;
-        if (load_template_params(params_.template_img_dir,params_.I_template_conners)==false){
+        if (load_template_params(params_.template_img_dir,params_.I_template_conners,params_.I_template_features)==false){
             exit(-1);
         }
 		camera_factor = 1000;
@@ -917,7 +918,7 @@ public:
 		time_prev_sec_ = double(time_prev_) / CLOCKS_PER_SEC;
 		// get inital template
 		int n_pnts = params_.template_xs.size(); //目标顶点个数
-		std::cerr << "- n_pnts = " << n_pnts << std::endl;//不经过缓冲而直接输出，一般用于迅速输出出错信息，是标准错误
+        //std::cerr << "- n_pnts = " << n_pnts << std::endl;//不经过缓冲而直接输出，一般用于迅速输出出错信息，是标准错误
 		// ginput
 		cv::Mat means;
 		{
@@ -969,18 +970,21 @@ public:
 		std::cerr << "- template_poly_pnts_ = " << template_poly_pnts_ << std::endl;*/
 		// template points
 		{
-			std::vector<cv::Point> xys(n_pnts);//模板角点按点对存储
-			for (int i = 0; i < n_pnts; ++i) {
-				cv::Point p((int)params_.template_xs[i], (int)params_.template_ys[i]);
-				xys[i] = p;
-			}
-			cv::Mat mask(i_I.rows, i_I.cols, CV_8U, cv::Scalar(0));
-			const cv::Point* pnts[1] = { xys.data() };//xys存储数据的起始地址
-			const int cnts[1] = { n_pnts };
-			cv::fillPoly(mask, pnts, cnts, 1, cv::Scalar(255)); //模板区域多边形填充，填充为白色
 
 
 			if (params_.state_domain == STATE_DOMAIN::SE3) {
+                //原来在if外面
+                std::vector<cv::Point> xys(n_pnts);//模板角点按点对存储
+                for (int i = 0; i < n_pnts; ++i) {
+                    cv::Point p((int)params_.template_xs[i], (int)params_.template_ys[i]);
+                    xys[i] = p;
+                }
+                cv::Mat mask(i_I.rows, i_I.cols, CV_8U, cv::Scalar(0));
+                const cv::Point* pnts[1] = { xys.data() };//xys存储数据的起始地址
+                const int cnts[1] = { n_pnts };
+                cv::fillPoly(mask, pnts, cnts, 1, cv::Scalar(255)); //模板区域多边形填充，填充为白色
+                cv::imshow("mask",mask);
+
 				// 3d points
 				cv::Mat template_pnts;
 				for (int c = 0; c < mask.cols; ++c) {
@@ -1002,17 +1006,37 @@ public:
 			}
 			else {
 				// 2d points
-				cv::Mat r_ind, c_ind;
-				cv::Scalar x_mean(means.at<float>(0));
-				cv::Scalar y_mean(means.at<float>(1));
-				for (int c = 0; c < mask.cols; ++c)	//整幅图像的列数
-				for (int r = 0; r < mask.rows; ++r)	//整幅图像的行数
-				if (mask.at<unsigned char>(r, c) == 255) {	//多边形模板区域内
-					r_ind.push_back((float)r - (float)y_mean[0]);	//所在行-模板角点行均值
-					c_ind.push_back((float)c - (float)x_mean[0]);	//所在列-模板角点行均值
-				}
-				r_ind = r_ind.t();	//转置由nX1转为1Xn
-				c_ind = c_ind.t();
+
+
+                cv::Mat init_frame_features;//模板图像中用于匹配的特征点映射到当前图像
+                cv::perspectiveTransform(cv::Mat(params_.I_template_features), init_frame_features, Htc);
+
+
+                int n_features=params_.I_template_features.size();
+                cv::Mat r_ind(1,n_features,CV_32F), c_ind(1,n_features,CV_32F);
+
+                cv::Scalar x_mean(means.at<float>(0));
+                cv::Scalar y_mean(means.at<float>(1));
+
+                cv::Mat I_ORI_init=I_ORI.clone();
+                for(int i=0;i<n_features;i++){
+                    r_ind.at<float>(0,i)=init_frame_features.at<float>(i,0)-x_mean[0];
+                    c_ind.at<float>(0,i)=init_frame_features.at<float>(i,1)-y_mean[0];
+                    cv::circle(I_ORI_init,cv::Point(init_frame_features.at<float>(i,0),init_frame_features.at<float>(i,1)),1,cv::Scalar(255));
+                    //I_ORI_init.at<unsigned char>(init_frame_features.at<float>(i,1),init_frame_features.at<float>(i,0))=255;
+                }
+                cv::circle(I_ORI_init,cv::Point(x_mean[0],y_mean[0]),3,cv::Scalar(0),2);
+                cv::imshow("I_ORI_init",I_ORI_init);
+
+//				for (int c = 0; c < mask.cols; ++c)	//整幅图像的列数
+//                    for (int r = 0; r < mask.rows; ++r)	{//整幅图像的行数
+//                        if (mask.at<unsigned char>(r, c) == 255) {	//多边形模板区域内
+//                            r_ind.push_back((float)r - (float)y_mean[0]);	//所在行-模板角点行均值
+//                            c_ind.push_back((float)c - (float)x_mean[0]);	//所在列-模板角点行均值
+//                        }
+//                }
+//				r_ind = r_ind.t();	//转置由nX1转为1Xn
+//				c_ind = c_ind.t();
 
 				cv::Mat os = cv::Mat::ones(1, c_ind.cols, CV_32F);
 				template_pnts_.push_back(c_ind);
@@ -1020,7 +1044,7 @@ public:
 				template_pnts_.push_back(os);
 			}
 			// WHICH ONE IS CORRECT? MATLB? C?
-			std::cerr << "- template_pnts_rows = " << template_pnts_.rows;
+            std::cerr << "- template_pnts_rows = " << template_pnts_.rows << std::endl;
 			std::cerr << "- template_pnts_cols = " << template_pnts_.cols << std::endl;
 			//std::cerr << "- template_pnts_(0, 0) = " << template_pnts_.at<float>(0, 0) << std::endl;	//这两行用来看什么？
 			//std::cerr << "- template_pnts_(0, 5) = " << template_pnts_.at<float>(0, 5) << std::endl;
@@ -1370,6 +1394,7 @@ public:
 				Track(I, t, X_opt);
 
 			Show(I_ORI, X_opt, t, fn_out);
+            //cv::waitKey(0);
 			//std::cout<<"show finished"<<std::endl;
 		}
 	}

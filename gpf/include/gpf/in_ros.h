@@ -23,6 +23,7 @@ cv::Mat I_template; //模板图
 cv::Ptr<cv::xfeatures2d::SiftFeatureDetector> feature;
 std::vector<cv::KeyPoint> template_keypoints;
 cv::Mat template_description;//模板特征描述
+cv::Mat Htc;   //变换矩阵,模板图像到当前图像
 cv::Ptr<cv::xfeatures2d::SiftDescriptorExtractor> descript;
 bool get_new_I=false; //获得新图片
 
@@ -49,7 +50,7 @@ bool get_template_poly_pnts(std::vector<float> &template_xs, std::vector<float> 
 bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conners_,std::vector<float> &template_xs, std::vector<float> &template_ys, int &far_point_, int &near_point_, bool showimage);//自动获取目标四个顶点
 void mouse(int event, int x, int y, int flags, void* param);
 void pub_position(cv::Mat &_T,cv::Mat &_R);
-bool load_template_params(const std::string &template_img_dir_,std::vector<cv::Point2f> &I_template_conners_);//模板特征检测
+bool load_template_params(const std::string &template_img_dir_,std::vector<cv::Point2f> &I_template_conners_,std::vector<cv::Point2f> &I_template_features_);//模板特征检测
 void colorimgSubCallback(const sensor_msgs::ImageConstPtr msg);
 
 
@@ -211,7 +212,7 @@ void pub_position(cv::Mat &_T,cv::Mat &_R,geometry_msgs::Transform &base2tool0_)
 }
 
 //模板特征检测
-bool load_template_params(const std::string &template_img_dir_,std::vector<cv::Point2f> &I_template_conners_){
+bool load_template_params(const std::string &template_img_dir_,std::vector<cv::Point2f> &I_template_conners_,std::vector<cv::Point2f> &I_template_features_){
     I_template=cv::imread(template_img_dir_);
     if(I_template.empty()){
         std::cout<<"template image load error"<<std::endl;
@@ -227,6 +228,38 @@ bool load_template_params(const std::string &template_img_dir_,std::vector<cv::P
     I_template_conners_[1]=cv::Point2f(I_template.cols,0);
     I_template_conners_[2]=cv::Point2f(I_template.cols,I_template.rows);
     I_template_conners_[3]=cv::Point2f(0,I_template.rows);
+    /*模板提取边缘，并进行膨胀，获得的特征区域*/
+    cv::Mat edge,gray;
+    cv::cvtColor(I_template,gray,cv::COLOR_BGR2GRAY);//模板图像转换为灰度图
+    cv::blur(gray,edge,cv::Size(3,3));//降噪
+    cv::Canny(edge,edge,20,60,3);
+    cv::imshow("edge canny",edge);
+    cv::Mat element=cv::getStructuringElement(cv::MORPH_RECT,cv::Size(7,7));//获取自定义核
+    cv::dilate(edge,edge,element);//膨胀，扩大两区域
+    cv::imshow("edge dilate",edge);
+    cv::imshow("template",I_template);
+
+    int allPoints=0;
+    int featurePoints=0;
+
+    for(int u=0;u<edge.rows;u++)
+        for(int v=0;v<edge.cols;v++){
+            allPoints++;
+            if(edge.at<unsigned char>(u,v)==255){
+                I_template_features_.push_back(cv::Point2f(v,u));
+                featurePoints++;
+            }
+        }
+
+    std::cout<<"allPoints: "<<allPoints<<std::endl;
+    std::cout<<"featurePoints: "<<featurePoints<<std::endl;
+
+    //cv::waitKey(0);
+
+
+
+    //exit(-1);
+
     return true;
 }
 
@@ -258,7 +291,6 @@ bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conne
             trainIdxs[i] = matches[i].trainIdx;
         }
 
-        cv::Mat Htc;   //变换矩阵,模板图像到当前图像
         std::vector<cv::Point2f> points_t;
         cv::KeyPoint::convert(template_keypoints, points_t, queryIdxs);
         std::vector<cv::Point2f> points_c;
@@ -268,7 +300,7 @@ bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conne
         Htc = cv::findHomography( cv::Mat(points_t), cv::Mat(points_c), CV_RANSAC, ransacReprojThreshold );
         std::vector<char> matchesMask( matches.size(), 0 );
         cv::Mat points_t_t;
-        perspectiveTransform(cv::Mat(points_t), points_t_t, Htc);
+        cv::perspectiveTransform(cv::Mat(points_t), points_t_t, Htc);
         int n_good_matchs=0;
         for(int i = 0; i < points_t.size(); i++)  //保存‘内点’
         {
@@ -283,7 +315,7 @@ bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conne
             colorimg_sub.shutdown();//取消彩图订阅
             /*映射获得当前图像中目标物的四个顶点*/
             cv::Mat cur_conners;
-            perspectiveTransform(cv::Mat(I_template_conners_), cur_conners, Htc);
+            cv::perspectiveTransform(cv::Mat(I_template_conners_), cur_conners, Htc);
             template_xs.resize(4);
             template_ys.resize(4);
             for(int i=0;i<I_template_conners_.size();i++){
@@ -323,7 +355,7 @@ bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conne
                 cv::Mat image_after_ransac;
                 cv::drawMatches(I_template,template_keypoints,I_ORI_RGB,curimg_keypoints,matches,image_after_ransac,cv::Scalar::all(-1),cv::Scalar::all(-1),matchesMask);
                 cv::imshow("after RANSAC", image_after_ransac);
-                cv::waitKey(0);
+                //cv::waitKey(0);
                 cv::destroyAllWindows();
             }
         }
