@@ -80,6 +80,7 @@ private:
 	int                     pca_n_;
 
 	double                  time_prev_sec_;
+    double                  time_pub_sec;
 
 	// buffers
 	std::vector<Tracker::Particle> particles;
@@ -860,6 +861,11 @@ public:
 		camera_fx = 533.30794;
 		camera_fy = 533.26216;
 
+//        camera_factor = 1000;
+//		camera_cx = 482.45643;
+//		camera_cy = 275.98007;
+//		camera_fx = 533.30794;
+//		camera_fy = 533.26216;
 	}
 	Tracker(const Tracker::Params &i_params) {
 		params_ = i_params;
@@ -868,6 +874,12 @@ public:
 		camera_cy = 275.98007;
 		camera_fx = 533.30794;
 		camera_fy = 533.26216;
+
+//        camera_factor = 1000;
+//		camera_cx = 482.45643;
+//		camera_cy = 275.98007;
+//		camera_fx = 533.30794;
+//		camera_fy = 533.26216;
 	}
 
 	void read_inputs(int i_t, Tracker::Inputs &i_inputs, cv::Mat &I_ori) {
@@ -1025,7 +1037,7 @@ public:
                     cv::circle(I_ORI_init,cv::Point(init_frame_features.at<float>(i,0),init_frame_features.at<float>(i,1)),1,cv::Scalar(255));
                     //I_ORI_init.at<unsigned char>(init_frame_features.at<float>(i,1),init_frame_features.at<float>(i,0))=255;
                 }
-                cv::circle(I_ORI_init,cv::Point(x_mean[0],y_mean[0]),3,cv::Scalar(0),2);
+                //cv::circle(I_ORI_init,cv::Point(x_mean[0],y_mean[0]),3,cv::Scalar(0),2);
                 cv::imshow("I_ORI_init",I_ORI_init);
 
 //				for (int c = 0; c < mask.cols; ++c)	//整幅图像的列数
@@ -1276,18 +1288,22 @@ public:
             //std::cout<<"t:"<<std::endl<<t<<std::endl;
             //std::cout << "-R:" << std::endl << r << std::endl;
             //std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
+
             if(i_t>=50){
                 cv::Mat r_t=r.t();
+                //计时
+                clock_t time_pub = clock();
+                time_pub_sec = double(time_pub) / CLOCKS_PER_SEC;
+                //std::cout<<"time pub r_t: "<<time_pub_sec-time_cur_sec<<std::endl;
 #ifdef has_ur5
-                pub_position(small_P3f[0],r_t,base2tool0);
+                pub_position(small_P3f[0],r_t,base2tool0,time_cur_sec,time_pub_sec);
 #else
                 pub_position(small_P3f[0],r_t);
-#endif
+#endif                                
                 //std::cout<<"pub_position"<<std::endl;
                 //cv::waitKey(0);
                 //exit(-1);
             }
-
 
 			char position[40];
 			snprintf(position, 40, "[%.03f,%.03f,%.03f]", small_P3f[0].at<float>(0,0), small_P3f[0].at<float>(0,1), small_P3f[0].at<float>(0,2));
@@ -1304,8 +1320,13 @@ public:
 		// show
 		cv::imshow("tracking...", I);
 		cv::waitKey(1);
+
+        //计时
+        clock_t time_imshow = clock();
+        double time_imshow_sec = double(time_imshow) / CLOCKS_PER_SEC;
+        //std::cout<<"time imshow: "<<time_imshow_sec-time_pub_sec<<std::endl;
 		// write results
-		//cv::imwrite(i_fn_out, I);
+        //cv::imwrite(i_fn_out, I);
 	}
 
 	void myShow(const cv::Mat &i_I, const std::vector<Tracker::Particle> i_particles, const int i_t, bool track) {

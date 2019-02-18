@@ -50,6 +50,8 @@ bool get_template_poly_pnts(std::vector<float> &template_xs, std::vector<float> 
 bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conners_,std::vector<float> &template_xs, std::vector<float> &template_ys, int &far_point_, int &near_point_, bool showimage);//自动获取目标四个顶点
 void mouse(int event, int x, int y, int flags, void* param);
 void pub_position(cv::Mat &_T,cv::Mat &_R);
+//发布相机坐标系到目标无坐标系的变换关系和机器人基座标系到末端坐标系的变换关系
+void pub_position(cv::Mat &_T,cv::Mat &_R,geometry_msgs::Transform &base2tool0_,double t_cur,double t_pub);
 bool load_template_params(const std::string &template_img_dir_,std::vector<cv::Point2f> &I_template_conners_,std::vector<cv::Point2f> &I_template_features_);//模板特征检测
 void colorimgSubCallback(const sensor_msgs::ImageConstPtr msg);
 
@@ -185,10 +187,11 @@ void pub_position(cv::Mat &_T,cv::Mat &_R){
     position.rotation.y=quate_r.y();
     position.rotation.z=quate_r.z();
     position.rotation.w=quate_r.w();
+
     position_publisher.publish(position);
 }
 //发布相机坐标系到目标无坐标系的变换关系和机器人基座标系到末端坐标系的变换关系
-void pub_position(cv::Mat &_T,cv::Mat &_R,geometry_msgs::Transform &base2tool0_){
+void pub_position(cv::Mat &_T,cv::Mat &_R,geometry_msgs::Transform &base2tool0_,double t_cur,double t_pub){
     gpf::obj_tool_transform pub_msg;
     geometry_msgs::Transform position;
     pub_msg.cam2obj.translation.x=_T.at<float>(0,0);
@@ -208,6 +211,8 @@ void pub_position(cv::Mat &_T,cv::Mat &_R,geometry_msgs::Transform &base2tool0_)
     pub_msg.cam2obj.rotation.w=quate_r.w();
 
     pub_msg.base2tool0=base2tool0_;
+    pub_msg.time_cur_sec_msg=t_cur;
+    pub_msg.time_pub_sec_msg=t_pub;
     position_publisher.publish(pub_msg);
 }
 

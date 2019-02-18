@@ -21,7 +21,11 @@ Eigen::Quaterniond base2eye_q;
 
 Eigen::Vector3d hand2tool0_t;
 //pbvs速度系数
-float lambda=0.8;
+float kp=0.8;
+float ti=0.0;
+float td=0.0;
+//计时
+double time_old_sec=0.0;
 
 //读取当前关节位置信息
 void variable_init(void)
@@ -68,6 +72,11 @@ void cmd_tool_stoop_pub(){
 void robot_target_subCB(const gpf::obj_tool_transform &transform_)
 {
     //目标物在相机坐标系下的坐标转机器人坐标系下的坐标
+    //计时
+    clock_t time_rec=clock();
+    double time_rec_sec=double(time_rec)/ CLOCKS_PER_SEC;
+    //std::cout<<"time receive msg: "<<time_rec_sec-transform_.time_pub_sec_msg<<std::endl;
+
     Eigen::Vector3d eye_center3d, bTtd;
     eye_center3d(0)=transform_.cam2obj.translation.x;
     eye_center3d(1)=transform_.cam2obj.translation.y;
@@ -112,7 +121,12 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
 
     //速度计算,换到基座标系下
     //轴角
-    Eigen::Vector3d v=-lambda*(tRtd_q*tdTt);
+    Eigen::Vector3d delta_xyz=tRtd_q*tdTt;
+    static Eigen::Vector3d delta_xyz_old=delta_xyz;//用于微分
+    static Eigen::Vector3d delta_xyz_i(0,0,0); //积分项
+
+    Eigen::Vector3d v=-kp*delta_xyz-kp*ti*(delta_xyz_i+delta_xyz)-kp*td*(delta_xyz-delta_xyz_old);
+    delta_xyz_old=delta_xyz;
     //Eigen::Vector3d tdRt_tu_eigen=tdRt_tu.axis();
     //std::cout<<"tdRt_tu_eigen axis: "<<tdRt_tu_eigen<<std::endl;
     //tdRt_tu_eigen=tdRt_tu.angle()*tdRt_tu_eigen;
@@ -125,18 +139,22 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     //std::cout<<"base_v: "<<v<<std::endl;
     //std::cout<<"base_w: "<<w<<std::endl;
     //opencv
-    Eigen::Vector3d tdRt_tu_opencv;
+    Eigen::Vector3d tdRt_tu_opencv(0,0,0);
     tdRt_tu_opencv(0)=tdRt_tu_m.at<float>(0,0);
     tdRt_tu_opencv(1)=tdRt_tu_m.at<float>(0,1);
     tdRt_tu_opencv(2)=tdRt_tu_m.at<float>(0,2);
+    static Eigen::Vector3d tdRt_tu_opencv_old=tdRt_tu_opencv;//用于微分
+    static Eigen::Vector3d tdRt_tu_opencv_i;//积分项
     //std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
-    Eigen::Vector3d w_opencv=-lambda*tdRt_tu_opencv;
+    Eigen::Vector3d w_opencv=-kp*tdRt_tu_opencv-kp*ti*(tdRt_tu_opencv_i+tdRt_tu_opencv)-kp*td*(tdRt_tu_opencv-tdRt_tu_opencv_old);
+    tdRt_tu_opencv_old=tdRt_tu_opencv;
+
+
     //std::cout<<"w_opencv: "<<w_opencv<<std::endl;
     v=bRt_q*v;
     w_opencv=bRt_q*w_opencv;
     //std::cout<<"base_w_opencv: "<<w_opencv<<std::endl<<std::endl<<std::endl;
 
-    
     //速度发布
     geometry_msgs::Twist toolVel;
     toolVel.linear.x=v(0);
@@ -147,6 +165,13 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     toolVel.angular.z=w_opencv(2);
     cmd_tool_vel_pub(toolVel);
 
+    //计时
+    clock_t time_end=clock();
+    double time_end_sec=double(time_end)/ CLOCKS_PER_SEC;
+    //std::cout<<"time time end: "<<time_end_sec-time_rec_sec<<std::endl;
+    //std::cout<<"time call back fun: "<<time_rec_sec-time_old_sec<<std::endl;
+    //std::cout<<"time from start to end: "<<time_end_sec-transform_.time_cur_sec_msg<<std::endl;
+    time_old_sec=time_rec_sec;
 }
 
 int main(int argc, char **argv)
