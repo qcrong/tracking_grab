@@ -208,7 +208,7 @@ namespace ur_arm
 
     public:
       ArmNode(Arm *arm) :
-        nh_("~"), frequency_(20), speed_(0.3), accel_(0.1), arm_(arm), command_(NULL)
+        nh_("~"), frequency_(50), speed_(0.3), accel_(1.3), arm_(arm), command_(NULL)
       {
         pthread_mutex_init(&mutex_, NULL);
 

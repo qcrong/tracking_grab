@@ -80,7 +80,7 @@ private:
 	int                     pca_n_;
 
 	double                  time_prev_sec_;
-    double                  time_pub_sec;
+    //double                  time_pub_sec;
 
 	// buffers
 	std::vector<Tracker::Particle> particles;
@@ -855,17 +855,17 @@ public:
         if (load_template_params(params_.template_img_dir,params_.I_template_conners,params_.I_template_features)==false){
             exit(-1);
         }
-		camera_factor = 1000;
-		camera_cx = 482.45643;
-		camera_cy = 275.98007;
-		camera_fx = 533.30794;
-		camera_fy = 533.26216;
-
+        camera_factor = 1000;
+        camera_cx = 482.45643;
+        camera_cy = 275.98007;
+        camera_fx = 533.30794;
+        camera_fy = 533.26216;
+        //305
 //        camera_factor = 1000;
-//		camera_cx = 482.45643;
-//		camera_cy = 275.98007;
-//		camera_fx = 533.30794;
-//		camera_fy = 533.26216;
+//        camera_cx = 484.24373;
+//        camera_cy = 268.88841;
+//        camera_fx = 534.40049;
+//        camera_fy = 533.98196;
 	}
 	Tracker(const Tracker::Params &i_params) {
 		params_ = i_params;
@@ -874,12 +874,12 @@ public:
 		camera_cy = 275.98007;
 		camera_fx = 533.30794;
 		camera_fy = 533.26216;
-
+        //305
 //        camera_factor = 1000;
-//		camera_cx = 482.45643;
-//		camera_cy = 275.98007;
-//		camera_fx = 533.30794;
-//		camera_fy = 533.26216;
+//        camera_cx = 484.24373;
+//        camera_cy = 268.88841;
+//        camera_fx = 534.40049;
+//        camera_fy = 533.98196;
 	}
 
 	void read_inputs(int i_t, Tracker::Inputs &i_inputs, cv::Mat &I_ori) {
@@ -925,9 +925,12 @@ public:
 #else
 		mkdir(params_.id.c_str(), S_IRWXU);
 #endif
-		// check time
-		clock_t time_prev_ = clock();
-		time_prev_sec_ = double(time_prev_) / CLOCKS_PER_SEC;
+        // check time
+        timeval time_prev_;
+        gettimeofday(&time_prev_,NULL);
+        //clock_t time_prev_ = clock();
+        time_prev_sec_=time_prev_.tv_sec+time_prev_.tv_usec/1000000.0;
+        //time_prev_sec_ = double(time_prev_) / CLOCKS_PER_SEC;
 		// get inital template
 		int n_pnts = params_.template_xs.size(); //目标顶点个数
         //std::cerr << "- n_pnts = " << n_pnts << std::endl;//不经过缓冲而直接输出，一般用于迅速输出出错信息，是标准错误
@@ -1038,7 +1041,7 @@ public:
                     //I_ORI_init.at<unsigned char>(init_frame_features.at<float>(i,1),init_frame_features.at<float>(i,0))=255;
                 }
                 //cv::circle(I_ORI_init,cv::Point(x_mean[0],y_mean[0]),3,cv::Scalar(0),2);
-                cv::imshow("I_ORI_init",I_ORI_init);
+                //cv::imshow("I_ORI_init",I_ORI_init);
 
 //				for (int c = 0; c < mask.cols; ++c)	//整幅图像的列数
 //                    for (int r = 0; r < mask.rows; ++r)	{//整幅图像的行数
@@ -1119,10 +1122,13 @@ public:
 	}
 
 	void Show(cv::Mat &I, const cv::Mat &i_X, const int i_t, const std::string i_fn_out) {
-		clock_t time_cur = clock();
-		double time_cur_sec = double(time_cur) / CLOCKS_PER_SEC;
+        timeval time_cur;
+        gettimeofday(&time_cur,NULL);
+        double time_cur_sec=time_cur.tv_sec+time_cur.tv_usec/1000000.0;
+        //clock_t time_cur = clock();
+        //double time_cur_sec = double(time_cur) / CLOCKS_PER_SEC;
 		double fps = 1.0 / (time_cur_sec - time_prev_sec_);
-		time_prev_sec_ = time_cur_sec;
+        //time_prev_sec_ = time_cur_sec;
 		// draw X
 		cv::Mat poly;
 		if (params_.state_domain == STATE_DOMAIN::SE3) {
@@ -1292,11 +1298,16 @@ public:
             if(i_t>=50){
                 cv::Mat r_t=r.t();
                 //计时
-                clock_t time_pub = clock();
-                time_pub_sec = double(time_pub) / CLOCKS_PER_SEC;
-                //std::cout<<"time pub r_t: "<<time_pub_sec-time_cur_sec<<std::endl;
+                /*timeval time_pub;
+                gettimeofday(&time_pub,NULL);
+                double time_pub_sec=time_pub.tv_sec+time_pub.tv_usec/1000000.0;
+                //clock_t time_pub = clock();
+                //time_pub_sec = double(time_pub) / CLOCKS_PER_SEC;
+                std::cout<<"time pub r_t: "<<time_pub_sec-time_cur_sec<<std::endl;
+                std::cout<<"time pub ==: "<<time_pub_sec<<std::endl;*/
 #ifdef has_ur5
-                pub_position(small_P3f[0],r_t,base2tool0,time_cur_sec,time_pub_sec);
+                //pub_position(small_P3f[0],r_t,base2tool0,time_cur_sec,time_pub.tv_usec);
+                pub_position(small_P3f[0],r_t,base2tool0);
 #else
                 pub_position(small_P3f[0],r_t);
 #endif                                
@@ -1322,9 +1333,14 @@ public:
 		cv::waitKey(1);
 
         //计时
-        clock_t time_imshow = clock();
-        double time_imshow_sec = double(time_imshow) / CLOCKS_PER_SEC;
-        //std::cout<<"time imshow: "<<time_imshow_sec-time_pub_sec<<std::endl;
+        /*timeval time_imshow;
+        gettimeofday(&time_imshow,NULL);
+        double time_imshow_sec=time_imshow.tv_sec+time_imshow.tv_usec/1000000.0;
+        //clock_t time_imshow = clock();
+        //double time_imshow_sec = double(time_imshow) / CLOCKS_PER_SEC;
+        std::cout<<"time imshow: "<<time_imshow_sec-time_prev_sec_<<std::endl;*/
+        time_prev_sec_ = time_cur_sec;
+
 		// write results
         //cv::imwrite(i_fn_out, I);
 	}

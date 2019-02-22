@@ -190,7 +190,7 @@ void pub_position(cv::Mat &_T,cv::Mat &_R){
 
     position_publisher.publish(position);
 }
-//发布相机坐标系到目标无坐标系的变换关系和机器人基座标系到末端坐标系的变换关系
+//发布相机坐标系到目标无坐标系的变换关系和机器人基座标系到末端坐标系的变换关系,和时间
 void pub_position(cv::Mat &_T,cv::Mat &_R,geometry_msgs::Transform &base2tool0_,double t_cur,double t_pub){
     gpf::obj_tool_transform pub_msg;
     geometry_msgs::Transform position;
@@ -216,6 +216,31 @@ void pub_position(cv::Mat &_T,cv::Mat &_R,geometry_msgs::Transform &base2tool0_,
     position_publisher.publish(pub_msg);
 }
 
+//发布相机坐标系到目标无坐标系的变换关系和机器人基座标系到末端坐标系的变换关系
+void pub_position(cv::Mat &_T,cv::Mat &_R,geometry_msgs::Transform &base2tool0_){
+    gpf::obj_tool_transform pub_msg;
+    geometry_msgs::Transform position;
+    pub_msg.cam2obj.translation.x=_T.at<float>(0,0);
+    pub_msg.cam2obj.translation.y=_T.at<float>(0,1);
+    pub_msg.cam2obj.translation.z=_T.at<float>(0,2);
+
+    Eigen::Matrix3d r;
+    for(int i=0;i<3;i++){
+        for(int j=0;j<3;j++){
+            r(i,j)=_R.at<float>(i,j);
+        }
+    }
+    Eigen::Quaterniond quate_r(r);
+    pub_msg.cam2obj.rotation.x=quate_r.x();
+    pub_msg.cam2obj.rotation.y=quate_r.y();
+    pub_msg.cam2obj.rotation.z=quate_r.z();
+    pub_msg.cam2obj.rotation.w=quate_r.w();
+
+    pub_msg.base2tool0=base2tool0_;
+
+    position_publisher.publish(pub_msg);
+}
+
 //模板特征检测
 bool load_template_params(const std::string &template_img_dir_,std::vector<cv::Point2f> &I_template_conners_,std::vector<cv::Point2f> &I_template_features_){
     I_template=cv::imread(template_img_dir_);
@@ -238,11 +263,11 @@ bool load_template_params(const std::string &template_img_dir_,std::vector<cv::P
     cv::cvtColor(I_template,gray,cv::COLOR_BGR2GRAY);//模板图像转换为灰度图
     cv::blur(gray,edge,cv::Size(3,3));//降噪
     cv::Canny(edge,edge,20,60,3);
-    cv::imshow("edge canny",edge);
+    //cv::imshow("edge canny",edge);
     cv::Mat element=cv::getStructuringElement(cv::MORPH_RECT,cv::Size(5,5));//获取自定义核
     cv::dilate(edge,edge,element);//膨胀，扩大两区域
-    cv::imshow("edge dilate",edge);
-    cv::imshow("template",I_template);
+    //cv::imshow("edge dilate",edge);
+    //cv::imshow("template",I_template);
 
     int allPoints=0;
     int featurePoints=0;
