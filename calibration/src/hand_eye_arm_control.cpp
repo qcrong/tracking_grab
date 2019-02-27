@@ -189,7 +189,7 @@ int main(int argc, char **argv)
 	cout<<"位姿0 拍摄第1张照片"<<endl;
 	ur_arm::Joints jointPos;   //关节角度值
   	//double p[6]={105,-145,-95,85,80,-10};  //关节角度值
-	double p[6]={-98,-143,-103,27,93,-90};  //关节角度值
+	double p[6]={-86,-143,-103,27,93,-90};  //关节角度值
 
   	for(int i=0;i<6;i++)
   	{

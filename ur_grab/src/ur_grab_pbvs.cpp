@@ -13,13 +13,16 @@
 
 ros::Publisher gripperPub;
 ros::Publisher tool_vel_pub;
+ros::Publisher tool_pos_pub;
 
 //手眼关系
 Eigen::Matrix3d base2eye_r;
 Eigen::Vector3d base2eye_t;
 Eigen::Quaterniond base2eye_q;
 
-Eigen::Vector3d hand2tool0_t;
+Eigen::Vector3d hand2tool0_t;//跟踪时手抓偏移
+Eigen::Vector3d obj2hand_t;//抓取时手抓偏移
+
 //pbvs速度系数
 float kp=2.5;
 //float ti=0.0;
@@ -31,13 +34,14 @@ float kp=2.5;
 //读取当前关节位置信息
 void variable_init(void)
 {
-    base2eye_r<<0.999950263540227, 0.006051541593860246, -0.007927754421595462,
-    0.009922323784437845, -0.5232089944078188, 0.852146639764235,
-    0.001008928415766358, -0.85218291875342, -0.5232430171998044;
+    base2eye_r<<0.9991888780047817, -0.03862545265115233, 0.01138685553779351,
+    -0.02932235313181097, -0.504066974335827, 0.8631666611904895,
+    -0.02760046518373141, -0.8628004171251987, -0.5047907036883933;
 
-    base2eye_t<<0.01688209130404279,-1.280952974708789,0.2746949472076;
+    base2eye_t<<0.03153200442746865,-1.306170953586107,0.2963374832296203;
     base2eye_q=base2eye_r;
     hand2tool0_t<<0,0,-0.22;
+    obj2hand_t<<0,0,-0.32;
 }
 
 //发布末端速度
@@ -82,17 +86,19 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     //std::cout<<"time receive msg: "<<(time_rec.tv_usec-transform_.time_pub_sec_msg)/1000000.0<<std::endl;
     //std::cout<<"time of sleep: "<<time_rec_sec - time_old_sec<<std::endl;
 
-    Eigen::Vector3d eye_center3d, bTtd;
+    Eigen::Vector3d eye_center3d, bTtd;//相机坐标系下目标物的位置，基座标系下目标物的位置
     eye_center3d(0)=transform_.cam2obj.translation.x;
     eye_center3d(1)=transform_.cam2obj.translation.y;
     eye_center3d(2)=transform_.cam2obj.translation.z;
 
     bTtd=base2eye_r*eye_center3d+base2eye_t;//目标转换到基座标系下
     Eigen::Quaterniond bRtd_q(transform_.cam2obj.rotation.w, transform_.cam2obj.rotation.x, transform_.cam2obj.rotation.y, transform_.cam2obj.rotation.z);//eye2obj
-    bRtd_q=base2eye_q*bRtd_q;
-    bTtd=bRtd_q*hand2tool0_t+bTtd;//考虑手抓偏移
+    bRtd_q=base2eye_q*bRtd_q;//基座标系下目标的姿态
+    Eigen::Vector3d bTtd_track;
+    bTtd_track=bRtd_q*hand2tool0_t+bTtd;//考虑手抓偏移
+    //bTtd=bRtd_q*hand2tool0_t+bTtd;//考虑手抓偏移
 
-    //std::cout<<"bTtd "<<bTtd(0)<<" "<<bTtd(1)<<" "<<bTtd(2)<<" "<<std::endl;
+    //std::cout<<"bTtd_track "<<bTtd_track(0)<<" "<<bTtd_track(1)<<" "<<bTtd_track(2)<<" "<<std::endl;
     //std::cout<<"bRtd_q "<<bRtd_q.x()<<" "<<bRtd_q.y()<<" "<<bRtd_q.z()<<" "<<bRtd_q.w()<<" "<<std::endl;
 
     //机械臂末端坐标系tool0在基座标系base下的位姿
@@ -106,7 +112,7 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     //转换到末端理想位姿坐标系下
     Eigen::Quaterniond tdRb=bRtd_q.inverse();
     Eigen::Quaterniond tRtd_q=bRt_q.inverse()*bRtd_q;
-    Eigen::Vector3d tdTt=tdRb*bTt-tdRb*bTtd;
+    Eigen::Vector3d tdTt=tdRb*bTt-tdRb*bTtd_track;
     //std::cout<<"tdTt"<<tdTt<<std::endl;
     //轴角
     Eigen::AngleAxisd tdRt_tu(tRtd_q.inverse());
@@ -126,13 +132,12 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
 
     //速度计算,换到基座标系下
     //轴角
-    Eigen::Vector3d delta_xyz=tRtd_q*tdTt;
+    //Eigen::Vector3d delta_xyz=tRtd_q*tdTt;
     //static Eigen::Vector3d delta_xyz_old=delta_xyz;//用于微分
     //static Eigen::Vector3d delta_xyz_i(0,0,0); //积分项
     //delta_xyz_i+=delta_xyz;
 
-    Eigen::Vector3d v=-kp*delta_xyz;//-kp*ti*delta_xyz_i-kp*td*(delta_xyz-delta_xyz_old);
-    //delta_xyz_old=delta_xyz;
+
 
     //opencv
     Eigen::Vector3d tdRt_tu_opencv(0,0,0);
@@ -143,6 +148,35 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     //static Eigen::Vector3d tdRt_tu_opencv_i;//积分项
     //tdRt_tu_opencv_i+=tdRt_tu_opencv;
     //std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
+
+    /*****误差计算*****/
+    double err=sqrt(tdTt(0)*tdTt(0)+tdTt(1)*tdTt(1)+tdTt(2)*tdTt(2)+
+                    tdRt_tu_opencv(0)*tdRt_tu_opencv(0)+tdRt_tu_opencv(1)*tdRt_tu_opencv(1)+tdRt_tu_opencv(2)*tdRt_tu_opencv(2));
+    if(err<0.05){
+        std::cout<<"error: "<<err<<std::endl;
+        std::cout<<"tdTt: "<<tdTt<<std::endl;
+        std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
+        //cmd_tool_stoop_pub();
+        Eigen::Vector3d bTtd_grab;
+        bTtd_grab=bRtd_q*obj2hand_t+bTtd;//考虑手抓偏移
+        geometry_msgs::Pose grabPose;
+        grabPose.position.x=bTtd_grab(0);
+        grabPose.position.y=bTtd_grab(1);
+        grabPose.position.z=bTtd_grab(2);
+        grabPose.orientation.x=bRtd_q.x();
+        grabPose.orientation.y=bRtd_q.y();
+        grabPose.orientation.z=bRtd_q.z();
+        grabPose.orientation.w=bRtd_q.w();
+        tool_pos_pub.publish(grabPose);
+        ros::Duration(0.1).sleep();
+        exit(0);
+    }
+
+
+    /*****速度计算*****/
+    Eigen::Vector3d v=-kp*(tRtd_q*tdTt);//-kp*ti*delta_xyz_i-kp*td*(delta_xyz-delta_xyz_old);
+    //delta_xyz_old=delta_xyz;
+
     Eigen::Vector3d w_opencv=-kp*tdRt_tu_opencv;//-kp*ti*tdRt_tu_opencv_i-kp*td*(tdRt_tu_opencv-tdRt_tu_opencv_old);
     //tdRt_tu_opencv_old=tdRt_tu_opencv;
 
@@ -162,6 +196,7 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     toolVel.angular.z=w_opencv(2);
     cmd_tool_vel_pub(toolVel);
 
+    std::cout<<"error: "<<err<<std::endl;
     //计时
     //gettimeofday(&time_end,NULL);
     //double time_end_sec=time_end.tv_sec+time_end.tv_usec/1000000.0;
@@ -180,15 +215,20 @@ int main(int argc, char **argv)
 
   ros::NodeHandle n;
   ros::Subscriber robot_target_sub=n.subscribe("/gpf/position",1,robot_target_subCB);
-  gripperPub=n.advertise<robotiq_2f_gripper_control::Robotiq2FGripper_robot_output>("/Robotiq2FGripperRobotOutput", 1);
+  gripperPub=n.advertise<robotiq_2f_gripper_control::Robotiq2FGripper_robot_output>("/Robotiq2FGripperRobotOutput", 20);
   tool_vel_pub = n.advertise<geometry_msgs::Twist>("/ur_arm_controller/cmd_tool_vel", 1);  //ur_arm速度控制
+  tool_pos_pub=n.advertise<geometry_msgs::Pose>("/ur_arm_controller/cmd_tool_pos", 1);  //ur_arm位置控制
 
-  tf2_ros::Buffer tfBuffer;
-  tf2_ros::TransformListener tfListener(tfBuffer);  //获取base坐标系下tool0的位姿
-
+  //tf2_ros::Buffer tfBuffer;
+  //tf2_ros::TransformListener tfListener(tfBuffer);  //获取base坐标系下tool0的位姿
+  ros::Duration(0.1).sleep();
   variable_init();
   initializeGripperMsg(gripperPub);//手抓初始化
-  //sendGripperMsg(gripperPub,0);
+  sendGripperMsg(gripperPub,0);
+  ros::Duration(3).sleep();
+  sendGripperMsg(gripperPub,250);
+
+  std::cout<<"grapper init"<<std::endl;
 
   //ros::Timer timer = n.createTimer(ros::Duration(0.1), boost::bind(&left_goal_task), true);
   ros::MultiThreadedSpinner spinner(2);
