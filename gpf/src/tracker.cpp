@@ -1321,12 +1321,9 @@ public:
                 //time_pub_sec = double(time_pub) / CLOCKS_PER_SEC;
                 std::cout<<"time pub r_t: "<<time_pub_sec-time_cur_sec<<std::endl;
                 std::cout<<"time pub ==: "<<time_pub_sec<<std::endl;*/
-#ifdef has_ur5
-                //pub_position(small_P3f[0],r_t,base2tool0,time_cur_sec,time_pub.tv_usec);
-                pub_position(small_P3f[0],r_t,base2tool0);
-#else
+
                 pub_position(small_P3f[0],r_t);
-#endif                                
+
                 //std::cout<<"pub_position"<<std::endl;
                 //cv::waitKey(0);
                 //exit(-1);
@@ -1462,13 +1459,8 @@ int main(int argc, char** argv) {
     message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
     sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
     colorimg_sub=nh.subscribe("/kinect2/qhd/image_color_rect",1,colorimgSubCallback);
-#ifdef has_ur5
-    position_publisher=nh.advertise<gpf::obj_tool_transform>("/gpf/position", 1, true);
-    tf2_ros::TransformListener tfListener(tfBuffer);  //获取机械臂末端在基坐标系下的位姿
-#else
     position_publisher=nh.advertise<geometry_msgs::Transform>("/gpf/position", 1, true);
 
-#endif
 	
 	std::string file=argv[1];//std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
 	//std::string file = std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");

@@ -11,7 +11,6 @@
 #include <kinect2_bridge/kinect2_definitions.h>
 
 #include "utils.h"
-#include "ur5_base_tool.hpp"
 #include <math.h>
 #include <geometry_msgs/Transform.h>
 #include "gpf/obj_tool_transform.h"
@@ -31,10 +30,6 @@ cv::Mat I_ORI_RGB;  //RGB
 ros::Publisher position_publisher;
 ros::Subscriber colorimg_sub;
 bool get_new_RGBI=false; //»ñµÃÐÂÍ¼Æ¬
-
-#ifdef has_ur5
-    geometry_msgs::Transform base2tool0;
-#endif
 
 struct img_point{
 	cv::Mat image;
@@ -96,11 +91,7 @@ void RecognitionCallback(const sensor_msgs::ImageConstPtr image_rgb, const senso
 		return;
 	}
     I_ORI=cv_ptr->image;
-#ifdef has_ur5
-    get_new_I=getPose(tfBuffer,base2tool0);
-#else
     get_new_I=true;
-#endif
 
   	//I_ORI = cv_bridge::toCvShare(image_rgb,"mono8")->image;
   	//I_ORI_DEPTH = cv_bridge::toCvShare(image_depth)->image;

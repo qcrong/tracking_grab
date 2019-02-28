@@ -10,6 +10,7 @@
 #include "ur_grab_pbvs/gripperControl.h"
 #include <gpf/obj_tool_transform.h>
 #include "opencv2/opencv.hpp"
+#include "ur_grab_pbvs/ur5_base_tool.hpp"
 
 ros::Publisher gripperPub;
 ros::Publisher tool_vel_pub;
@@ -29,6 +30,8 @@ float kp=3.5;
 //float td=0.0;
 //计时
 //double time_old_sec=0.0;
+tf2_ros::Buffer tfBuffer;
+geometry_msgs::Transform base2tool0;
 
 
 //读取当前关节位置信息
@@ -74,7 +77,7 @@ void cmd_tool_stoop_pub(){
 }
 
 
-void robot_target_subCB(const gpf::obj_tool_transform &transform_)
+void robot_target_subCB(const geometry_msgs::Transform &transform_)
 {
     //目标物在相机坐标系下的坐标转机器人坐标系下的坐标
     //计时
@@ -87,12 +90,12 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     //std::cout<<"time of sleep: "<<time_rec_sec - time_old_sec<<std::endl;
 
     Eigen::Vector3d eye_center3d, bTtd;//相机坐标系下目标物的位置，基座标系下目标物的位置
-    eye_center3d(0)=transform_.cam2obj.translation.x;
-    eye_center3d(1)=transform_.cam2obj.translation.y;
-    eye_center3d(2)=transform_.cam2obj.translation.z;
+    eye_center3d(0)=transform_.translation.x;
+    eye_center3d(1)=transform_.translation.y;
+    eye_center3d(2)=transform_.translation.z;
 
     bTtd=base2eye_r*eye_center3d+base2eye_t;//目标转换到基座标系下
-    Eigen::Quaterniond bRtd_q(transform_.cam2obj.rotation.w, transform_.cam2obj.rotation.x, transform_.cam2obj.rotation.y, transform_.cam2obj.rotation.z);//eye2obj
+    Eigen::Quaterniond bRtd_q(transform_.rotation.w, transform_.rotation.x, transform_.rotation.y, transform_.rotation.z);//eye2obj
     bRtd_q=base2eye_q*bRtd_q;//基座标系下目标的姿态
     Eigen::Vector3d bTtd_track;
     bTtd_track=bRtd_q*hand2tool0_t+bTtd;//考虑手抓偏移
@@ -102,11 +105,13 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     //std::cout<<"bRtd_q "<<bRtd_q.x()<<" "<<bRtd_q.y()<<" "<<bRtd_q.z()<<" "<<bRtd_q.w()<<" "<<std::endl;
 
     //机械臂末端坐标系tool0在基座标系base下的位姿
+    getPose(tfBuffer,base2tool0);
+
     Eigen::Vector3d bTt;
-    bTt(0)=transform_.base2tool0.translation.x;
-    bTt(1)=transform_.base2tool0.translation.y;
-    bTt(2)=transform_.base2tool0.translation.z;
-    Eigen::Quaterniond bRt_q(transform_.base2tool0.rotation.w, transform_.base2tool0.rotation.x, transform_.base2tool0.rotation.y, transform_.base2tool0.rotation.z);
+    bTt(0)=base2tool0.translation.x;
+    bTt(1)=base2tool0.translation.y;
+    bTt(2)=base2tool0.translation.z;
+    Eigen::Quaterniond bRt_q(base2tool0.rotation.w, base2tool0.rotation.x, base2tool0.rotation.y, base2tool0.rotation.z);
     //std::cout<<"bTt "<<bTt(0)<<" "<<bTt(1)<<" "<<bTt(2)<<" "<<std::endl;
     //std::cout<<"bRt_q "<<bRt_q.x()<<" "<<bRt_q.y()<<" "<<bRt_q.z()<<" "<<bRt_q.w()<<" "<<std::endl;
     //转换到末端理想位姿坐标系下
@@ -152,7 +157,7 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     /*****误差计算*****/
     double err=sqrt(tdTt(0)*tdTt(0)+tdTt(1)*tdTt(1)+tdTt(2)*tdTt(2)+
                     tdRt_tu_opencv(0)*tdRt_tu_opencv(0)+tdRt_tu_opencv(1)*tdRt_tu_opencv(1)+tdRt_tu_opencv(2)*tdRt_tu_opencv(2));
-    if(err<0.04){
+    if(err<0.05){
         std::cout<<"error: "<<err<<std::endl;
         std::cout<<"tdTt: "<<tdTt<<std::endl;
         std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
@@ -219,8 +224,7 @@ int main(int argc, char **argv)
   tool_vel_pub = n.advertise<geometry_msgs::Twist>("/ur_arm_controller/cmd_tool_vel", 1);  //ur_arm速度控制
   tool_pos_pub=n.advertise<geometry_msgs::Pose>("/ur_arm_controller/cmd_tool_pos", 1);  //ur_arm位置控制
 
-  //tf2_ros::Buffer tfBuffer;
-  //tf2_ros::TransformListener tfListener(tfBuffer);  //获取base坐标系下tool0的位姿
+  tf2_ros::TransformListener tfListener(tfBuffer);  //获取base坐标系下tool0的位姿
   ros::Duration(0.1).sleep();
   variable_init();
   initializeGripperMsg(gripperPub);//手抓初始化
