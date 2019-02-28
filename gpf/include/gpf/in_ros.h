@@ -263,11 +263,11 @@ bool load_template_params(const std::string &template_img_dir_,std::vector<cv::P
     cv::cvtColor(I_template,gray,cv::COLOR_BGR2GRAY);//模板图像转换为灰度图
     cv::blur(gray,edge,cv::Size(3,3));//降噪
     cv::Canny(edge,edge,20,60,3);
-    //cv::imshow("edge canny",edge);
-    cv::Mat element=cv::getStructuringElement(cv::MORPH_RECT,cv::Size(5,5));//获取自定义核
+    cv::imshow("edge canny",edge);
+    cv::Mat element=cv::getStructuringElement(cv::MORPH_RECT,cv::Size(3,3));//获取自定义核
     cv::dilate(edge,edge,element);//膨胀，扩大两区域
-    //cv::imshow("edge dilate",edge);
-    //cv::imshow("template",I_template);
+    cv::imshow("edge dilate",edge);
+    cv::imshow("template",I_template);
 
     int allPoints=0;
     int featurePoints=0;
@@ -313,7 +313,7 @@ bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conne
     /* RANSAC求取单应性矩阵，去除误匹配 */
     /************************************************************************/
     /*保存匹配序号对*/
-    if(matches.size()>10){
+    if(matches.size()>20){
         std::vector<int> queryIdxs(matches.size()), trainIdxs(matches.size());
         for( int i = 0; i < matches.size(); i++ )
         {
@@ -340,7 +340,7 @@ bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conne
                 n_good_matchs++;
             }
         }
-        if(n_good_matchs>=8){
+        if(n_good_matchs>=12){
             std::cout<<"numbers of good matchs: "<<n_good_matchs<<std::endl;
             colorimg_sub.shutdown();//取消彩图订阅
             /*映射获得当前图像中目标物的四个顶点*/
@@ -386,7 +386,7 @@ bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conne
                 cv::drawMatches(I_template,template_keypoints,I_ORI_RGB,curimg_keypoints,matches,image_after_ransac,cv::Scalar::all(-1),cv::Scalar::all(-1),matchesMask);
                 cv::imshow("after RANSAC", image_after_ransac);
                 //cv::waitKey(0);
-                cv::destroyAllWindows();
+                //cv::destroyAllWindows();
             }
         }
         else{

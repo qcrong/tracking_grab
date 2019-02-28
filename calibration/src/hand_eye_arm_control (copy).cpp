@@ -189,7 +189,7 @@ int main(int argc, char **argv)
 	cout<<"位姿0 拍摄第1张照片"<<endl;
 	ur_arm::Joints jointPos;   //关节角度值
   	//double p[6]={105,-145,-95,85,80,-10};  //关节角度值
-	double p[6]={-81,-122,-124,35,87,-90};  //关节角度值
+	double p[6]={-86,-143,-103,27,93,-90};  //关节角度值
 
   	for(int i=0;i<6;i++)
   	{
@@ -222,7 +222,7 @@ int main(int argc, char **argv)
 	cout<<"位姿1 拍摄第2张照片"<<endl;
     VectorXd vel(6);
   	vel<<0.03, -0.02, 0.0, 5.0*deg2rad, 3.0*deg2rad, 0.0 *deg2rad;
-  	tool_vel(vel,tfBuffer,tool_vel_pub,1);
+  	tool_vel(vel,tfBuffer,tool_vel_pub,2);
     ros::Duration(5).sleep();
 	
 	getPose(tfBuffer,poseNew_t,poseNew_r);
@@ -257,7 +257,7 @@ int main(int argc, char **argv)
 	cout<<"位姿2 拍摄第3张照片"<<endl;
 	//VectorXd vel(6);
   	vel<<-0.07, 0.0, 0.02, 0.0, -5*deg2rad, -5*deg2rad;
-  	tool_vel(vel,tfBuffer,tool_vel_pub,1);
+  	tool_vel(vel,tfBuffer,tool_vel_pub,2);
   	ros::Duration(3).sleep();//稍作延时
 
 	getPose(tfBuffer,poseNew_t,poseNew_r);
@@ -291,7 +291,7 @@ int main(int argc, char **argv)
 	/**************************************************************************************************************************/
 	cout<<"位姿3 拍摄第4张照片"<<endl;
   	vel<<-0.05, 0.0, 0.0, -13*deg2rad, 13*deg2rad, 0.0;
-  	tool_vel(vel,tfBuffer,tool_vel_pub,1);
+  	tool_vel(vel,tfBuffer,tool_vel_pub,2);
   	ros::Duration(3).sleep();//稍作延时
 
 	getPose(tfBuffer,poseNew_t,poseNew_r);
@@ -324,8 +324,8 @@ int main(int argc, char **argv)
 	/****************************************************5. 位姿4***************************************************/
 	/**************************************************************************************************************************/
 	cout<<"位姿4 拍摄第5张照片"<<endl;
-  	vel<< 0.05,0.04,0.01,10*deg2rad,-5*deg2rad,10*deg2rad;
-  	tool_vel(vel,tfBuffer,tool_vel_pub,1);
+  	vel<< 0.05,0.04,0.01,10*deg2rad,-5*deg2rad,5*deg2rad;
+  	tool_vel(vel,tfBuffer,tool_vel_pub,2);
   	ros::Duration(3).sleep();//稍作延时
 
 	getPose(tfBuffer,poseNew_t,poseNew_r);

@@ -24,7 +24,7 @@ Eigen::Vector3d hand2tool0_t;//跟踪时手抓偏移
 Eigen::Vector3d obj2hand_t;//抓取时手抓偏移
 
 //pbvs速度系数
-float kp=2.5;
+float kp=3.5;
 //float ti=0.0;
 //float td=0.0;
 //计时
@@ -34,13 +34,13 @@ float kp=2.5;
 //读取当前关节位置信息
 void variable_init(void)
 {
-    base2eye_r<<0.9991888780047817, -0.03862545265115233, 0.01138685553779351,
-    -0.02932235313181097, -0.504066974335827, 0.8631666611904895,
-    -0.02760046518373141, -0.8628004171251987, -0.5047907036883933;
+    base2eye_r<<0.9995315118578345, -0.009752539532206575, -0.02901111469529991,
+    0.01948326657704545, -0.5282719873530139, 0.8488516417499494,
+    -0.02360421840855667, -0.8490191961026374, -0.5278344868635918;
 
-    base2eye_t<<0.03153200442746865,-1.306170953586107,0.2963374832296203;
+    base2eye_t<<0.06197284625670423,-1.134581509723617,0.3029004003996792;
     base2eye_q=base2eye_r;
-    hand2tool0_t<<0,0,-0.22;
+    hand2tool0_t<<0,0,-0.25;
     obj2hand_t<<0,0,-0.32;
 }
 
@@ -152,11 +152,11 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
     /*****误差计算*****/
     double err=sqrt(tdTt(0)*tdTt(0)+tdTt(1)*tdTt(1)+tdTt(2)*tdTt(2)+
                     tdRt_tu_opencv(0)*tdRt_tu_opencv(0)+tdRt_tu_opencv(1)*tdRt_tu_opencv(1)+tdRt_tu_opencv(2)*tdRt_tu_opencv(2));
-    if(err<0.05){
+    if(err<0.04){
         std::cout<<"error: "<<err<<std::endl;
         std::cout<<"tdTt: "<<tdTt<<std::endl;
         std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
-        //cmd_tool_stoop_pub();
+        cmd_tool_stoop_pub();
         Eigen::Vector3d bTtd_grab;
         bTtd_grab=bRtd_q*obj2hand_t+bTtd;//考虑手抓偏移
         geometry_msgs::Pose grabPose;
@@ -167,7 +167,7 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
         grabPose.orientation.y=bRtd_q.y();
         grabPose.orientation.z=bRtd_q.z();
         grabPose.orientation.w=bRtd_q.w();
-        tool_pos_pub.publish(grabPose);
+        //tool_pos_pub.publish(grabPose);
         ros::Duration(0.1).sleep();
         exit(0);
     }
@@ -224,9 +224,9 @@ int main(int argc, char **argv)
   ros::Duration(0.1).sleep();
   variable_init();
   initializeGripperMsg(gripperPub);//手抓初始化
-  sendGripperMsg(gripperPub,0);
-  ros::Duration(3).sleep();
-  sendGripperMsg(gripperPub,250);
+  //sendGripperMsg(gripperPub,0);
+  //ros::Duration(3).sleep();
+  //sendGripperMsg(gripperPub,250);
 
   std::cout<<"grapper init"<<std::endl;
 

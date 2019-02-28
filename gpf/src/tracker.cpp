@@ -305,9 +305,9 @@ private:
 			// return
 			//if (diff.rows < diff.cols)
 				//std::runtime_error("- invalid shape of diff");
-			float len = float(diff.rows);
-			float dist = diff.dot(diff) / len; //点乘求平方
-			o_dist = cv::Mat(1, 1, CV_32F, cv::Scalar(dist));
+            double len = double(diff.rows);
+            double dist = diff.dot(diff) / len; //点乘求平方
+            o_dist = cv::Mat(1, 1, CV_64F, cv::Scalar(dist));
 			o_R = params_.ssd_params.R;
 		}
 		else if (obs_mdl_type_.compare("onlinePCA") == 0) {
@@ -336,7 +336,7 @@ private:
 
 		}
 		// need more accuracy
-		o_dist.convertTo(o_dist, CV_64F);
+        //o_dist.convertTo(o_dist, CV_64F);
 		o_R.convertTo(o_R, CV_64F);
 	}
 
@@ -411,7 +411,7 @@ private:
 	}
 
 	void update_particle_weights(std::vector<Tracker::Particle> &i_particles, const cv::Mat &i_I, std::vector<float> &i_w, std::vector<float> &o_w) {
-		// P(Y_t | X_t)
+        // P(Y_t | X_t)`
 		int n_particles = i_particles.size();
 		o_w.resize(n_particles);
 		float w_sum = 0, prob;
@@ -422,8 +422,8 @@ private:
 			eval_obs_mdl(i_I, i_particles[i].state.X, dist, R);	//更新dist R
 			cv::exp(-dist.t() * R.inv() * dist / 2, prob_n);
 			cv::sqrt(2 * 3.14 * cv::determinant(R), prob_dn);
-			//prob = prob_n.at<double>(0) / prob_dn.at<double>(0);  ??不应该是用相乘吗？
-			prob = prob_n.at<double>(0) * prob_dn.at<double>(0);
+            prob = prob_n.at<double>(0) / prob_dn.at<double>(0);  //??不应该是用相乘吗？
+            //prob = prob_n.at<double>(0) * prob_dn.at<double>(0);
 			//prob = cv::exp(-dist.at<double>(0) / R.at<double>(0, 0) * dist.at<double>(0) / 2);
 
 			//std::cout << "dist(1) = " << dist.at<double>(0) << std::endl;
@@ -855,12 +855,20 @@ public:
         if (load_template_params(params_.template_img_dir,params_.I_template_conners,params_.I_template_features)==false){
             exit(-1);
         }
+
+        //hd
+//        camera_factor = 1000;
+//        camera_cx = 968.48745;
+//        camera_cy = 537.77681;
+//        camera_fx = 1068.8010;
+//        camera_fy = 1067.9639;
+        //qhd
         camera_factor = 1000;
         camera_cx = 482.45643;
         camera_cy = 275.98007;
         camera_fx = 533.30794;
         camera_fy = 533.26216;
-        //305
+        //305 qhd
 //        camera_factor = 1000;
 //        camera_cx = 484.24373;
 //        camera_cy = 268.88841;
@@ -869,12 +877,20 @@ public:
 	}
 	Tracker(const Tracker::Params &i_params) {
 		params_ = i_params;
-		camera_factor = 1000;
-		camera_cx = 482.45643;
-		camera_cy = 275.98007;
-		camera_fx = 533.30794;
-		camera_fy = 533.26216;
-        //305
+        //hd
+//        camera_factor = 1000;
+//        camera_cx = 968.48745;
+//        camera_cy = 537.77681;
+//        camera_fx = 1068.8010;
+//        camera_fy = 1067.9639;
+
+        //qhd
+        camera_factor = 1000;
+        camera_cx = 482.45643;
+        camera_cy = 275.98007;
+        camera_fx = 533.30794;
+        camera_fy = 533.26216;
+        //305qhd
 //        camera_factor = 1000;
 //        camera_cx = 484.24373;
 //        camera_cy = 268.88841;
@@ -1295,7 +1311,7 @@ public:
             //std::cout << "-R:" << std::endl << r << std::endl;
             //std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
 
-            if(i_t>=50){
+            {//if(i_t>=3)
                 cv::Mat r_t=r.t();
                 //计时
                 /*timeval time_pub;
@@ -1405,7 +1421,7 @@ public:
 
 			cv::Mat X_opt;
             if (t == 1){
-                if(!autoget_template_poly_pnts(params_.I_template_conners,params_.template_xs, params_.template_ys, far_point, near_point)){
+                if(!autoget_template_poly_pnts(params_.I_template_conners,params_.template_xs, params_.template_ys, far_point, near_point,1)){
                     std::cout<<"get_template_poly_pnts ellor"<<std::endl;
                     t=0;
                     continue;
