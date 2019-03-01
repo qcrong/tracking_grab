@@ -37,14 +37,14 @@ geometry_msgs::Transform base2tool0;
 //读取当前关节位置信息
 void variable_init(void)
 {
-    base2eye_r<<0.9995315118578345, -0.009752539532206575, -0.02901111469529991,
-    0.01948326657704545, -0.5282719873530139, 0.8488516417499494,
-    -0.02360421840855667, -0.8490191961026374, -0.5278344868635918;
+    base2eye_r<<0.9993265185143174, 0.004725647441657752, -0.03638925185148839,
+    0.03346591160675549, -0.5241313362617256, 0.8509796561074932,
+    -0.01505131736369794, -0.8516243365503107, -0.523936491610254 ;
 
-    base2eye_t<<0.06197284625670423,-1.134581509723617,0.3029004003996792;
+    base2eye_t<<0.08303243556220688,-1.132400313601395,0.3027286311722797;
     base2eye_q=base2eye_r;
     hand2tool0_t<<0,0,-0.25;
-    obj2hand_t<<0,0,-0.32;
+    obj2hand_t<<0,0,-0.13;
 }
 
 //发布末端速度
@@ -111,6 +111,7 @@ void robot_target_subCB(const geometry_msgs::Transform &transform_)
     bTt(0)=base2tool0.translation.x;
     bTt(1)=base2tool0.translation.y;
     bTt(2)=base2tool0.translation.z;
+
     Eigen::Quaterniond bRt_q(base2tool0.rotation.w, base2tool0.rotation.x, base2tool0.rotation.y, base2tool0.rotation.z);
     //std::cout<<"bTt "<<bTt(0)<<" "<<bTt(1)<<" "<<bTt(2)<<" "<<std::endl;
     //std::cout<<"bRt_q "<<bRt_q.x()<<" "<<bRt_q.y()<<" "<<bRt_q.z()<<" "<<bRt_q.w()<<" "<<std::endl;
@@ -132,7 +133,7 @@ void robot_target_subCB(const geometry_msgs::Transform &transform_)
         }
     cv::Mat tdRt_tu_m;
     cv::Rodrigues(tdRt_mat,tdRt_tu_m);
-    //std::cout<<"tdRt_tu_m"<<tdRt_tu_m<<std::endl;
+    std::cout<<"tdRt_tu_m"<<tdRt_tu_m<<std::endl;
 	
 
     //速度计算,换到基座标系下
@@ -154,16 +155,28 @@ void robot_target_subCB(const geometry_msgs::Transform &transform_)
     //tdRt_tu_opencv_i+=tdRt_tu_opencv;
     //std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
 
+    //位置控制，保证Z轴高度，不打物品放置平面
+    if(bTt(2)<0.015)
+    {
+        cmd_tool_stoop_pub();
+        std::cout<<"bTt Z: "<<bTt(2)<<std::endl;
+        ros::Duration(0.1).sleep();
+        exit(0);
+    }
+
     /*****误差计算*****/
-    double err=sqrt(tdTt(0)*tdTt(0)+tdTt(1)*tdTt(1)+tdTt(2)*tdTt(2)+
+    double err_xyz_2=tdTt(0)*tdTt(0)+tdTt(1)*tdTt(1)+tdTt(2)*tdTt(2);
+    double err=sqrt(err_xyz_2+
                     tdRt_tu_opencv(0)*tdRt_tu_opencv(0)+tdRt_tu_opencv(1)*tdRt_tu_opencv(1)+tdRt_tu_opencv(2)*tdRt_tu_opencv(2));
     if(err<0.05){
-        std::cout<<"error: "<<err<<std::endl;
-        std::cout<<"tdTt: "<<tdTt<<std::endl;
-        std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
-        cmd_tool_stoop_pub();
+        //cmd_tool_stoop_pub();
         Eigen::Vector3d bTtd_grab;
         bTtd_grab=bRtd_q*obj2hand_t+bTtd;//考虑手抓偏移
+        if(bTtd_grab(2)<0.015){
+            std::cout<<"bTtd_grab z: "<<bTtd_grab(2)<<"<0.02"<<std::endl;
+            cmd_tool_stoop_pub();
+            exit(0);
+        }
         geometry_msgs::Pose grabPose;
         grabPose.position.x=bTtd_grab(0);
         grabPose.position.y=bTtd_grab(1);
@@ -172,7 +185,35 @@ void robot_target_subCB(const geometry_msgs::Transform &transform_)
         grabPose.orientation.y=bRtd_q.y();
         grabPose.orientation.z=bRtd_q.z();
         grabPose.orientation.w=bRtd_q.w();
-        //tool_pos_pub.publish(grabPose);
+        tool_pos_pub.publish(grabPose);
+        std::cout<<"error: "<<err<<std::endl;
+        std::cout<<"tdTt: "<<tdTt<<std::endl;
+        std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
+        std::cout<<"bTtd_grab: "<<bTtd_grab<<std::endl;
+        //夹爪夹紧位置
+        while(true){
+            getPose(tfBuffer,base2tool0);
+            double delatXYZ=sqrt((bTtd_grab(0)-base2tool0.translation.x)*(bTtd_grab(0)-base2tool0.translation.x)+
+                                 (bTtd_grab(1)-base2tool0.translation.y)*(bTtd_grab(1)-base2tool0.translation.y)+
+                                 (bTtd_grab(2)-base2tool0.translation.z)*(bTtd_grab(2)-base2tool0.translation.z)
+                                 );
+            //std::cout<<"delatXYZ: "<<delatXYZ<<std::endl;
+            if(delatXYZ<0.02){
+                break;
+            }
+        }
+        sendGripperMsg(gripperPub,65);
+
+        grabPose.position.z+=0.1;
+        tool_pos_pub.publish(grabPose);
+
+        ros::Duration(0.1).sleep();
+
+        exit(0);
+    }
+    else if(sqrt(err_xyz_2)>1.0){
+        cmd_tool_stoop_pub();
+        std::cout<<"error: "<<err<<std::endl;
         ros::Duration(0.1).sleep();
         exit(0);
     }
