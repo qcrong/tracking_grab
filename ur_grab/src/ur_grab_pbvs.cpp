@@ -77,7 +77,7 @@ void cmd_tool_stoop_pub(){
 }
 
 
-void robot_target_subCB(const geometry_msgs::Transform &transform_)
+void robot_target_subCB(const gpf::obj_tool_transform &transform_)
 {
     //目标物在相机坐标系下的坐标转机器人坐标系下的坐标
     //计时
@@ -90,15 +90,24 @@ void robot_target_subCB(const geometry_msgs::Transform &transform_)
     //std::cout<<"time of sleep: "<<time_rec_sec - time_old_sec<<std::endl;
 
     Eigen::Vector3d eye_center3d, bTtd;//相机坐标系下目标物的位置，基座标系下目标物的位置
-    eye_center3d(0)=transform_.translation.x;
-    eye_center3d(1)=transform_.translation.y;
-    eye_center3d(2)=transform_.translation.z;
+    eye_center3d(0)=transform_.cam2obj.translation.x;
+    eye_center3d(1)=transform_.cam2obj.translation.y;
+    eye_center3d(2)=transform_.cam2obj.translation.z;
 
     bTtd=base2eye_r*eye_center3d+base2eye_t;//目标转换到基座标系下
-    Eigen::Quaterniond bRtd_q(transform_.rotation.w, transform_.rotation.x, transform_.rotation.y, transform_.rotation.z);//eye2obj
+    /*****偏差预测*****/
+    double deltaTime=(ros::Time::now()-transform_.data).toSec();
+    std::cout<<"deltaTime: "<<deltaTime<<std::endl;
+    static Eigen::Vector3d bTtdOld=bTtd;
+    Eigen::Vector3d bTtd_pred=bTtd+(bTtd-bTtdOld);//下一周期位置预测
+    Eigen::Vector3d vT=(bTtd-bTtdOld)/deltaTime;
+    std::cout<<"vT: "<<vT<<std::endl;   //速度
+    bTtdOld=bTtd;
+
+    Eigen::Quaterniond bRtd_q(transform_.cam2obj.rotation.w, transform_.cam2obj.rotation.x, transform_.cam2obj.rotation.y, transform_.cam2obj.rotation.z);//eye2obj
     bRtd_q=base2eye_q*bRtd_q;//基座标系下目标的姿态
     Eigen::Vector3d bTtd_track;
-    bTtd_track=bRtd_q*hand2tool0_t+bTtd;//考虑手抓偏移
+    bTtd_track=bRtd_q*hand2tool0_t+bTtd_pred;//考虑手抓偏移
     //bTtd=bRtd_q*hand2tool0_t+bTtd;//考虑手抓偏移
 
     //std::cout<<"bTtd_track "<<bTtd_track(0)<<" "<<bTtd_track(1)<<" "<<bTtd_track(2)<<" "<<std::endl;
@@ -169,11 +178,12 @@ void robot_target_subCB(const geometry_msgs::Transform &transform_)
     double err=sqrt(err_xyz_2+
                     tdRt_tu_opencv(0)*tdRt_tu_opencv(0)+tdRt_tu_opencv(1)*tdRt_tu_opencv(1)+tdRt_tu_opencv(2)*tdRt_tu_opencv(2));
     if(err<0.05){
-        //cmd_tool_stoop_pub();
+        cmd_tool_stoop_pub();
         Eigen::Vector3d bTtd_grab;
-        bTtd_grab=bRtd_q*obj2hand_t+bTtd;//考虑手抓偏移
+        bTtd_pred+=vT*0.7;
+        bTtd_grab=bRtd_q*obj2hand_t+bTtd_pred;//考虑手抓偏移
         if(bTtd_grab(2)<0.015){
-            std::cout<<"bTtd_grab z: "<<bTtd_grab(2)<<"<0.02"<<std::endl;
+            std::cout<<"bTtd_grab z: "<<bTtd_grab(2)<<"<0.015"<<std::endl;
             cmd_tool_stoop_pub();
             exit(0);
         }
@@ -191,7 +201,7 @@ void robot_target_subCB(const geometry_msgs::Transform &transform_)
         std::cout<<"tdRt_tu_opencv: "<<tdRt_tu_opencv<<std::endl;
         std::cout<<"bTtd_grab: "<<bTtd_grab<<std::endl;
         //夹爪夹紧位置
-        while(true){
+        while(ros::ok()){
             getPose(tfBuffer,base2tool0);
             double delatXYZ=sqrt((bTtd_grab(0)-base2tool0.translation.x)*(bTtd_grab(0)-base2tool0.translation.x)+
                                  (bTtd_grab(1)-base2tool0.translation.y)*(bTtd_grab(1)-base2tool0.translation.y)+
@@ -211,13 +221,12 @@ void robot_target_subCB(const geometry_msgs::Transform &transform_)
 
         exit(0);
     }
-    else if(sqrt(err_xyz_2)>1.0){
+    else if(sqrt(err_xyz_2)>0.8){
         cmd_tool_stoop_pub();
         std::cout<<"error: "<<err<<std::endl;
         ros::Duration(0.1).sleep();
         exit(0);
     }
-
 
     /*****速度计算*****/
     Eigen::Vector3d v=-kp*(tRtd_q*tdTt);//-kp*ti*delta_xyz_i-kp*td*(delta_xyz-delta_xyz_old);
@@ -266,7 +275,7 @@ int main(int argc, char **argv)
   tool_pos_pub=n.advertise<geometry_msgs::Pose>("/ur_arm_controller/cmd_tool_pos", 1);  //ur_arm位置控制
 
   tf2_ros::TransformListener tfListener(tfBuffer);  //获取base坐标系下tool0的位姿
-  ros::Duration(0.1).sleep();
+  ros::Duration(0.2).sleep();
   variable_init();
   initializeGripperMsg(gripperPub);//手抓初始化
   //sendGripperMsg(gripperPub,0);

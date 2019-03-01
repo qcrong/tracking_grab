@@ -1459,7 +1459,7 @@ int main(int argc, char** argv) {
     message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
     sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
     colorimg_sub=nh.subscribe("/kinect2/qhd/image_color_rect",1,colorimgSubCallback);
-    position_publisher=nh.advertise<geometry_msgs::Transform>("/gpf/position", 1, true);
+    position_publisher=nh.advertise<gpf::obj_tool_transform>("/gpf/position", 1, true);
 
 	
 	std::string file=argv[1];//std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
