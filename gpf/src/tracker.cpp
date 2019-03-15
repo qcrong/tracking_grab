@@ -88,11 +88,11 @@ private:
 	std::vector<float> w;
 	std::vector<float> w_res;
 	//相机内参,先进行标定，然后订阅相机话题查看
-	double camera_factor;
-	double camera_cx;
-	double camera_cy;
-	double camera_fx;
-	double camera_fy;
+//	double camera_factor;
+//	double camera_cx;
+//	double camera_cy;
+//	double camera_fx;
+//	double camera_fy;
 	//长边编号和短边编号
     int far_point, near_point;
 
@@ -838,13 +838,38 @@ private:
 			}
 		}
         //path of template image
-        while (getline(conf_file, line)) {
-            if (line[0] == '#' || line.size() == 0) continue;
-            else {
-                params_.template_img_dir= line;
-                break;
-            }
-        }
+//        while (getline(conf_file, line)) {
+//            if (line[0] == '#' || line.size() == 0) continue;
+//            else {
+//                params_.template_img_dir= line;
+//                break;
+//            }
+//        }
+        while(std::getline(conf_file, line)) {
+           if(line[0] == '#' || line.size() == 0) continue;
+           else {
+               // xs
+               {
+                   std::istringstream iss(line);
+                   std::vector<float> template_xs;
+                   float tmp;
+                   while( iss >> tmp )
+                       template_xs.push_back(tmp);
+                   params_.template_xs = template_xs;
+               }
+               // ys
+               {
+                   std::getline(conf_file, line);
+                   std::istringstream iss(line);
+                   std::vector<float> template_ys;
+                   float tmp;
+                   while( iss >> tmp )
+                       template_ys.push_back(tmp);
+                   params_.template_ys = template_ys;
+               }
+               break;
+           }
+       }
 
 	}
 
@@ -852,9 +877,9 @@ public:
 	Tracker(const std::string &i_conf_fn) {
 		load_params(i_conf_fn);
 		//std::cout<<"load successed"<<std::endl;
-        if (load_template_params(params_.template_img_dir,params_.I_template_conners,params_.I_template_features)==false){
-            exit(-1);
-        }
+//        if (load_template_params(params_.template_img_dir,params_.I_template_conners,params_.I_template_features)==false){
+//            exit(-1);
+//        }
 
         //hd
 //        camera_factor = 1000;
@@ -863,11 +888,11 @@ public:
 //        camera_fx = 1068.8010;
 //        camera_fy = 1067.9639;
         //qhd
-        camera_factor = 1000;
-        camera_cx = 482.45643;
-        camera_cy = 275.98007;
-        camera_fx = 533.30794;
-        camera_fy = 533.26216;
+//        camera_factor = 1000;
+//        camera_cx = 482.45643;
+//        camera_cy = 275.98007;
+//        camera_fx = 533.30794;
+//        camera_fy = 533.26216;
         //305 qhd
 //        camera_factor = 1000;
 //        camera_cx = 484.24373;
@@ -885,11 +910,11 @@ public:
 //        camera_fy = 1067.9639;
 
         //qhd
-        camera_factor = 1000;
-        camera_cx = 482.45643;
-        camera_cy = 275.98007;
-        camera_fx = 533.30794;
-        camera_fy = 533.26216;
+//        camera_factor = 1000;
+//        camera_cx = 482.45643;
+//        camera_cy = 275.98007;
+//        camera_fx = 533.30794;
+//        camera_fy = 533.26216;
         //305qhd
 //        camera_factor = 1000;
 //        camera_cx = 484.24373;
@@ -902,8 +927,9 @@ public:
 		char input_fn[1024];
 		// rgb
 		snprintf(input_fn, 1024, params_.file_fmt.c_str(), i_t); //将图片命名添加编号补全
-		std::string rgb_fn = params_.frame_dir + std::string(input_fn) + std::string(".png"); //添加图片完整路径和后缀名称
-		I_ori = cv::imread(rgb_fn.c_str(), CV_LOAD_IMAGE_GRAYSCALE); //以灰度图格式载入原始图片
+        std::string rgb_fn = params_.frame_dir + std::string(input_fn) + std::string(".jpg"); //添加图片完整路径和后缀名称
+        //std::cout<<"rgb_fn: "<<rgb_fn<<std::endl;
+        I_ori = cv::imread(rgb_fn.c_str(), CV_LOAD_IMAGE_GRAYSCALE); //以灰度图格式载入原始图片
 		I_ori.convertTo(i_inputs.I, CV_32F, 1.0 / 255.0);//把一个矩阵从一种数据类型转换到另一种数据类型，这里是对图像像素值归一化
 
 		if (params_.state_domain == STATE_DOMAIN::SE3) {
@@ -1037,10 +1063,10 @@ public:
 			}
 			else {
 				// 2d points
+                load_template_params_2D(I_ORI,params_.template_xs,params_.template_ys,params_.I_template_features);
 
-
-                cv::Mat init_frame_features;//模板图像中用于匹配的特征点映射到当前图像
-                cv::perspectiveTransform(cv::Mat(params_.I_template_features), init_frame_features, Htc);
+                //cv::Mat init_frame_features;//模板图像中用于匹配的特征点映射到当前图像
+                //cv::perspectiveTransform(cv::Mat(params_.I_template_features), init_frame_features, Htc);
 
 
                 int n_features=params_.I_template_features.size();
@@ -1051,14 +1077,15 @@ public:
 
                 cv::Mat I_ORI_init=I_ORI.clone();
                 for(int i=0;i<n_features;i++){
-                    r_ind.at<float>(0,i)=init_frame_features.at<float>(i,1)-y_mean[0];
-                    c_ind.at<float>(0,i)=init_frame_features.at<float>(i,0)-x_mean[0];
-                    cv::circle(I_ORI_init,cv::Point(init_frame_features.at<float>(i,0),init_frame_features.at<float>(i,1)),1,cv::Scalar(255));
-                    //I_ORI_init.at<unsigned char>(init_frame_features.at<float>(i,1),init_frame_features.at<float>(i,0))=255;
+                    r_ind.at<float>(0,i)=params_.I_template_features[i].y-y_mean[0];
+                    c_ind.at<float>(0,i)=params_.I_template_features[i].x-x_mean[0];
+                    //cv::circle(I_ORI_init,cv::Point(params_.I_template_features[i].x,params_.I_template_features[i].y),1,cv::Scalar(255));
+                    I_ORI_init.at<unsigned char>(params_.I_template_features[i].y,params_.I_template_features[i].x)=255;
+                    //std::cout<<params_.I_template_features[i].x<<", "<<params_.I_template_features[i].y<<std::endl;
                 }
-                //cv::circle(I_ORI_init,cv::Point(x_mean[0],y_mean[0]),3,cv::Scalar(0),2);
-                //cv::imshow("I_ORI_init",I_ORI_init);
-
+                cv::circle(I_ORI_init,cv::Point(x_mean[0],y_mean[0]),3,cv::Scalar(0),2);
+                cv::imshow("I_ORI_init",I_ORI_init);
+                //cv::waitKey(0);
 //				for (int c = 0; c < mask.cols; ++c)	//整幅图像的列数
 //                    for (int r = 0; r < mask.rows; ++r)	{//整幅图像的行数
 //                        if (mask.at<unsigned char>(r, c) == 255) {	//多边形模板区域内
@@ -1193,150 +1220,154 @@ public:
 
 		cv::Point2i p((int)i_X.at<float>(0,2), (int)i_X.at<float>(1,2));
 		circle(I, p, 2, cv::Scalar(255),-1);//画多边形中心
+
+
         //防止边缘点超出物品边界，收缩为原来的1/5
-		std::vector<cv::Point2i> small_P2d(4);
-		small_P2d[0]=p;
-		for(int i=1;i<4;i++){
-			small_P2d[i].x=p.x+(int)(pnts[i].x-pnts[0].x)/5;
-			small_P2d[i].y=p.y+(int)(pnts[i].y-pnts[0].y)/5;
-		}
+//		std::vector<cv::Point2i> small_P2d(4);
+//		small_P2d[0]=p;
+//		for(int i=1;i<4;i++){
+//			small_P2d[i].x=p.x+(int)(pnts[i].x-pnts[0].x)/5;
+//			small_P2d[i].y=p.y+(int)(pnts[i].y-pnts[0].y)/5;
+//		}
 
-		std::vector<cv::Mat> small_P3f(4);
-		bool depth_avail=true; //深度图读取是否有值
-		for(int i=0;i<4;i++){
-			// 获取深度图点处的值
-            //std::cout<<"small_P2d[i].y "<< small_P2d[i].y <<std::endl;
-            //std::cout<<"small_P2d[i].x "<< small_P2d[i].x <<std::endl;
-        	ushort d = I_ORI_DEPTH.ptr<ushort>(small_P2d[i].y)[small_P2d[i].x];
-			if(d<=0 || d>3000){
-				depth_avail=false;
-				std::cout<<"depth error"<< i <<": "<<d<<std::endl;
-				break;			
-			}
-			//计算空间坐标
-			cv::Mat temp_point=cv::Mat(1,3,CV_32FC1);
-			temp_point.at<float>(0,2)=float(d) / camera_factor;
-			temp_point.at<float>(0,0) = (small_P2d[i].x- camera_cx) * temp_point.at<float>(0,2) / camera_fx;
-        	temp_point.at<float>(0,1) = (small_P2d[i].y - camera_cy) * temp_point.at<float>(0,2) / camera_fy;
-			small_P3f[i]=temp_point.clone();
-		}
-        //输出缩小后的四个点在相机坐标系下的坐标
-        //std::cout<<std::endl;
-        //std::cout<<"4 points of camera fram"<<std::endl;
-//        for(int i=0;i<4;i++)
-//        {
-//            std::cout<<small_P3f[i]<<std::endl;
-//        }
-		if(depth_avail){
-			std::vector<cv::Mat> obj_xyz(3);//物体坐标系
-			obj_xyz[0]=small_P3f[far_point]-small_P3f[0];
-			cv::normalize(obj_xyz[0],obj_xyz[0]);
-            //std::cout<<"obj_xyz[0] normalize"<<std::endl<<obj_xyz[0]<<std::endl;
+//		std::vector<cv::Mat> small_P3f(4);
+//		bool depth_avail=true; //深度图读取是否有值
+//		for(int i=0;i<4;i++){
+//			// 获取深度图点处的值
+//            //std::cout<<"small_P2d[i].y "<< small_P2d[i].y <<std::endl;
+//            //std::cout<<"small_P2d[i].x "<< small_P2d[i].x <<std::endl;
+//        	ushort d = I_ORI_DEPTH.ptr<ushort>(small_P2d[i].y)[small_P2d[i].x];
+//			if(d<=0 || d>3000){
+//				depth_avail=false;
+//				std::cout<<"depth error"<< i <<": "<<d<<std::endl;
+//				break;
+//			}
+//			//计算空间坐标
+//			cv::Mat temp_point=cv::Mat(1,3,CV_32FC1);
+//			temp_point.at<float>(0,2)=float(d) / camera_factor;
+//			temp_point.at<float>(0,0) = (small_P2d[i].x- camera_cx) * temp_point.at<float>(0,2) / camera_fx;
+//        	temp_point.at<float>(0,1) = (small_P2d[i].y - camera_cy) * temp_point.at<float>(0,2) / camera_fy;
+//			small_P3f[i]=temp_point.clone();
+//		}
+//        //输出缩小后的四个点在相机坐标系下的坐标
+//        //std::cout<<std::endl;
+//        //std::cout<<"4 points of camera fram"<<std::endl;
+////        for(int i=0;i<4;i++)
+////        {
+////            std::cout<<small_P3f[i]<<std::endl;
+////        }
+//		if(depth_avail){
+//			std::vector<cv::Mat> obj_xyz(3);//物体坐标系
+//			obj_xyz[0]=small_P3f[far_point]-small_P3f[0];
+//			cv::normalize(obj_xyz[0],obj_xyz[0]);
+//            //std::cout<<"obj_xyz[0] normalize"<<std::endl<<obj_xyz[0]<<std::endl;
 
-			if(near_point<0){
-                obj_xyz[1]=small_P3f[-near_point]-small_P3f[0];
-				obj_xyz[2]=obj_xyz[1].cross(obj_xyz[0]);
-                //std::cout<<"near_point<0"<<std::endl;
-			}
-			else{
-				obj_xyz[1]=small_P3f[near_point]-small_P3f[0];
-				obj_xyz[2]=obj_xyz[0].cross(obj_xyz[1]);
-                //std::cout<<"near_point>0"<<std::endl;
-			}
-			cv::normalize(obj_xyz[2],obj_xyz[2]);
-            //std::cout<<"obj_xyz[2] normalize"<<std::endl<<obj_xyz[2]<<std::endl;
+//			if(near_point<0){
+//                obj_xyz[1]=small_P3f[-near_point]-small_P3f[0];
+//				obj_xyz[2]=obj_xyz[1].cross(obj_xyz[0]);
+//                //std::cout<<"near_point<0"<<std::endl;
+//			}
+//			else{
+//				obj_xyz[1]=small_P3f[near_point]-small_P3f[0];
+//				obj_xyz[2]=obj_xyz[0].cross(obj_xyz[1]);
+//                //std::cout<<"near_point>0"<<std::endl;
+//			}
+//			cv::normalize(obj_xyz[2],obj_xyz[2]);
+//            //std::cout<<"obj_xyz[2] normalize"<<std::endl<<obj_xyz[2]<<std::endl;
 
-			obj_xyz[1]=obj_xyz[2].cross(obj_xyz[0]);
-			cv::normalize(obj_xyz[1],obj_xyz[1]);
-            //std::cout<<"obj_xyz[1] normalize"<<std::endl<<obj_xyz[1]<<std::endl;
+//			obj_xyz[1]=obj_xyz[2].cross(obj_xyz[0]);
+//			cv::normalize(obj_xyz[1],obj_xyz[1]);
+//            //std::cout<<"obj_xyz[1] normalize"<<std::endl<<obj_xyz[1]<<std::endl;
 
-            /*********求解RT**********/
-            //投影到物体坐标系
-			cv::Mat obj_mean=cv::Mat::zeros(3,1,CV_32FC1);
-			cv::Mat obj_points=cv::Mat::zeros(4,3,CV_32FC1);
-			for(int i=1;i<4;i++){
-				for(int j=0;j<3;j++){
-					cv::Mat temp=small_P3f[i]-small_P3f[0];
-					obj_points.at<float>(i,j)=temp.dot(obj_xyz[j]);
-				}
-				obj_mean.at<float>(0,0)+=obj_points.at<float>(i,0);
-				obj_mean.at<float>(0,1)+=obj_points.at<float>(i,1);
-				obj_mean.at<float>(0,2)+=obj_points.at<float>(i,2);
-			}
-            //std::cout<<"obj_points"<<std::endl<<obj_points<<std::endl;
-			obj_mean/=4;
-			for(int i=0;i<4;i++){
-				obj_points.at<float>(i,0)-=obj_mean.at<float>(0,0);
-				obj_points.at<float>(i,1)-=obj_mean.at<float>(0,1);
-				obj_points.at<float>(i,2)-=obj_mean.at<float>(0,2);
-			}
+//            /*********求解RT**********/
+//            //投影到物体坐标系
+//			cv::Mat obj_mean=cv::Mat::zeros(3,1,CV_32FC1);
+//			cv::Mat obj_points=cv::Mat::zeros(4,3,CV_32FC1);
+//			for(int i=1;i<4;i++){
+//				for(int j=0;j<3;j++){
+//					cv::Mat temp=small_P3f[i]-small_P3f[0];
+//					obj_points.at<float>(i,j)=temp.dot(obj_xyz[j]);
+//				}
+//				obj_mean.at<float>(0,0)+=obj_points.at<float>(i,0);
+//				obj_mean.at<float>(0,1)+=obj_points.at<float>(i,1);
+//				obj_mean.at<float>(0,2)+=obj_points.at<float>(i,2);
+//			}
+//            //std::cout<<"obj_points"<<std::endl<<obj_points<<std::endl;
+//			obj_mean/=4;
+//			for(int i=0;i<4;i++){
+//				obj_points.at<float>(i,0)-=obj_mean.at<float>(0,0);
+//				obj_points.at<float>(i,1)-=obj_mean.at<float>(0,1);
+//				obj_points.at<float>(i,2)-=obj_mean.at<float>(0,2);
+//			}
 
-			cv::Mat cam_mean=cv::Mat::zeros(3,1,CV_32FC1);
-			cv::Mat cam_points=cv::Mat(3,4,CV_32FC1);
-			for(int j=0;j<4;j++){
-				for(int i=0;i<3;i++){
-					cam_points.at<float>(i,j)=small_P3f[j].at<float>(0,i);
-				}
-				cam_mean.at<float>(0,0)+=cam_points.at<float>(0,j);
-				cam_mean.at<float>(0,1)+=cam_points.at<float>(1,j);
-				cam_mean.at<float>(0,2)+=cam_points.at<float>(2,j);
-			}
-            //std::cout<<"cam_points"<<std::endl<<cam_points<<std::endl;
-			cam_mean/=4;
-			for(int j=0;j<4;j++){
-				cam_points.at<float>(0,j)-=cam_mean.at<float>(0,0);
-				cam_points.at<float>(1,j)-=cam_mean.at<float>(0,1);
-				cam_points.at<float>(2,j)-=cam_mean.at<float>(0,2);
-			}
+//			cv::Mat cam_mean=cv::Mat::zeros(3,1,CV_32FC1);
+//			cv::Mat cam_points=cv::Mat(3,4,CV_32FC1);
+//			for(int j=0;j<4;j++){
+//				for(int i=0;i<3;i++){
+//					cam_points.at<float>(i,j)=small_P3f[j].at<float>(0,i);
+//				}
+//				cam_mean.at<float>(0,0)+=cam_points.at<float>(0,j);
+//				cam_mean.at<float>(0,1)+=cam_points.at<float>(1,j);
+//				cam_mean.at<float>(0,2)+=cam_points.at<float>(2,j);
+//			}
+//            //std::cout<<"cam_points"<<std::endl<<cam_points<<std::endl;
+//			cam_mean/=4;
+//			for(int j=0;j<4;j++){
+//				cam_points.at<float>(0,j)-=cam_mean.at<float>(0,0);
+//				cam_points.at<float>(1,j)-=cam_mean.at<float>(0,1);
+//				cam_points.at<float>(2,j)-=cam_mean.at<float>(0,2);
+//			}
 		
-			cv::Mat H=cam_points*obj_points;
-            //std::cout << "-H:" << std::endl << H << std::endl;
-			// svd(H)
-			cv::Mat u, v, s;
-			cv::SVD::compute(H, s, u, v); //这里求得的v是vt
-			v=v.t();
-			//std::cerr << "- size(u): " << u.rows << ", " << u.cols << std::endl;
-			//std::cerr << "- s: " << s << std::endl;
-			//std::cerr << "- v: " << v << std::endl;
-			cv::Mat r=v*u.t();
-			if(cv::determinant(r)<0){
-                //std::cout<<"reflection detected"<<std::endl;
-				v.at<float>(0,2)*=-1;
-				v.at<float>(1,2)*=-1;
-				v.at<float>(2,2)*=-1;
-				r=v*u.t();
-			}
-            cv::Mat t=r*cam_mean+obj_mean;
-            //std::cout<<"t:"<<std::endl<<t<<std::endl;
-            //std::cout << "-R:" << std::endl << r << std::endl;
-            //std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
+//			cv::Mat H=cam_points*obj_points;
+//            //std::cout << "-H:" << std::endl << H << std::endl;
+//			// svd(H)
+//			cv::Mat u, v, s;
+//			cv::SVD::compute(H, s, u, v); //这里求得的v是vt
+//			v=v.t();
+//			//std::cerr << "- size(u): " << u.rows << ", " << u.cols << std::endl;
+//			//std::cerr << "- s: " << s << std::endl;
+//			//std::cerr << "- v: " << v << std::endl;
+//			cv::Mat r=v*u.t();
+//			if(cv::determinant(r)<0){
+//                //std::cout<<"reflection detected"<<std::endl;
+//				v.at<float>(0,2)*=-1;
+//				v.at<float>(1,2)*=-1;
+//				v.at<float>(2,2)*=-1;
+//				r=v*u.t();
+//			}
+//            cv::Mat t=r*cam_mean+obj_mean;
+//            //std::cout<<"t:"<<std::endl<<t<<std::endl;
+//            //std::cout << "-R:" << std::endl << r << std::endl;
+//            //std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
 
-            {//if(i_t>=3)
-                cv::Mat r_t=r.t();
-                //计时
-                /*timeval time_pub;
-                gettimeofday(&time_pub,NULL);
-                double time_pub_sec=time_pub.tv_sec+time_pub.tv_usec/1000000.0;
-                //clock_t time_pub = clock();
-                //time_pub_sec = double(time_pub) / CLOCKS_PER_SEC;
-                std::cout<<"time pub r_t: "<<time_pub_sec-time_cur_sec<<std::endl;
-                std::cout<<"time pub ==: "<<time_pub_sec<<std::endl;*/
+//            {//if(i_t>=3)
+//                cv::Mat r_t=r.t();
+//                //计时
+//                /*timeval time_pub;
+//                gettimeofday(&time_pub,NULL);
+//                double time_pub_sec=time_pub.tv_sec+time_pub.tv_usec/1000000.0;
+//                //clock_t time_pub = clock();
+//                //time_pub_sec = double(time_pub) / CLOCKS_PER_SEC;
+//                std::cout<<"time pub r_t: "<<time_pub_sec-time_cur_sec<<std::endl;
+//                std::cout<<"time pub ==: "<<time_pub_sec<<std::endl;*/
 
-                pub_position(small_P3f[0],r_t);
+//                pub_position(small_P3f[0],r_t);
 
-                //std::cout<<"pub_position"<<std::endl;
-                //cv::waitKey(0);
-                //exit(-1);
-            }
+//                //std::cout<<"pub_position"<<std::endl;
+//                //cv::waitKey(0);
+//                //exit(-1);
+//            }
 
-			char position[40];
-			snprintf(position, 40, "[%.03f,%.03f,%.03f]", small_P3f[0].at<float>(0,0), small_P3f[0].at<float>(0,1), small_P3f[0].at<float>(0,2));
-            cv::putText(I, position, cv::Point(p.x+50, p.y+50), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255),2);
-		}
-        //绘制方向向量
-        circle(I, small_P2d[0], 2, cv::Scalar(255),-1);
-        line(I,small_P2d[0],small_P2d[far_point],cv::Scalar(0),2);
-        line(I,small_P2d[0],small_P2d[abs(near_point)],cv::Scalar(100),2);
+//			char position[40];
+//			snprintf(position, 40, "[%.03f,%.03f,%.03f]", small_P3f[0].at<float>(0,0), small_P3f[0].at<float>(0,1), small_P3f[0].at<float>(0,2));
+//            cv::putText(I, position, cv::Point(p.x+50, p.y+50), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255),2);
+//		}
+//        //绘制方向向量
+//        circle(I, small_P2d[0], 2, cv::Scalar(255),-1);
+//        line(I,small_P2d[0],small_P2d[far_point],cv::Scalar(0),2);
+//        line(I,small_P2d[0],small_P2d[abs(near_point)],cv::Scalar(100),2);
+
+
 		// add a title
 		char title[20];
 		snprintf(title,20, "%.02f fps", fps);
@@ -1403,26 +1434,26 @@ public:
 
 	void Run() {
 		// track
-        for (unsigned int t = 1; ros::ok(); t++) {
-			std::string fn_out = params_.id + std::string("/") + std::to_string(t) + std::string(".png"); //输出图片文件路径和文件名
-			//std::cout<<"fn_out:"<<fn_out<<std::endl;
+        for (unsigned int t = params_.start_frame; t<params_.end_frame; t++) {
+            std::string fn_out = params_.id + std::string("/") + std::to_string(t) + std::string(".jpg"); //输出图片文件路径和文件名
+            //std::cout<<"fn_out:"<<fn_out<<std::endl;
 			Tracker::Inputs I;  //像素归一化后的图像
-			//read_inputs(t, I, I_ORI);	//I的图像为灰度图，且像素经过了归一化
-			my_read_inputs(I);
+            read_inputs(t, I, I_ORI);	//I的图像为灰度图，且像素经过了归一化
+            //my_read_inputs(I);
 			if (I.I.empty())
 			{
 				std::cout << "读图失败" << std::endl;
 			}
-			//cv::imshow("test", I.I);
-			//cv::waitKey(0);
+//            cv::imshow("test", I.I);
+//            cv::waitKey(0);
 
 			cv::Mat X_opt;
-            if (t == 1){
-                if(!autoget_template_poly_pnts(params_.I_template_conners,params_.template_xs, params_.template_ys, far_point, near_point,1)){
-                    std::cout<<"get_template_poly_pnts ellor"<<std::endl;
-                    t=0;
-                    continue;
-                }
+            if (t == params_.init_frame){
+//                if(!autoget_template_poly_pnts(params_.I_template_conners,params_.template_xs, params_.template_ys, far_point, near_point,1)){
+//                    std::cout<<"get_template_poly_pnts ellor"<<std::endl;
+//                    t=0;
+//                    continue;
+//                }
 //                if(get_template_poly_pnts(params_.template_xs, params_.template_ys, far_point, near_point)==false){
 //					std::cout<<"get_template_poly_pnts ellor"<<std::endl;
 //					return;
@@ -1438,7 +1469,7 @@ public:
 				}
 				std::cout<<std::endl;*/
 				Init(I, X_opt);		//对于彩图，X_opt为3X3向量，对角线为1，最后一列前两行为模板顶点X和Y的均值，粒子都在中心点
-				//std::cout<<"init finished"<<std::endl;
+                //std::cout<<"init finished"<<std::endl;
 			}
 			else
 				Track(I, t, X_opt);
@@ -1452,14 +1483,14 @@ public:
 
 
 int main(int argc, char** argv) {
-    ros::init(argc, argv, "gpf");
-    ros::NodeHandle nh;
-    message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
-    message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
-    message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
-    sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
-    colorimg_sub=nh.subscribe("/kinect2/qhd/image_color_rect",1,colorimgSubCallback);
-    position_publisher=nh.advertise<gpf::obj_tool_transform>("/gpf/position", 1, true);
+//    ros::init(argc, argv, "gpf");
+//    ros::NodeHandle nh;
+//    message_filters::Subscriber<sensor_msgs::Image> image_rgb_sub(nh, "/kinect2/qhd/image_color_rect", 1);
+//    message_filters::Subscriber<sensor_msgs::Image>image_depth_sub(nh, "/kinect2/qhd/image_depth_rect", 1);
+//    message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_rgb_sub, image_depth_sub, 10);
+//    sync.registerCallback(boost::bind(&RecognitionCallback, _1, _2));
+//    colorimg_sub=nh.subscribe("/kinect2/qhd/image_color_rect",1,colorimgSubCallback);
+//    position_publisher=nh.advertise<gpf::obj_tool_transform>("/gpf/position", 1, true);
 
 	
 	std::string file=argv[1];//std::string("/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf");
