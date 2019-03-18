@@ -119,7 +119,10 @@ private:
 
 			int c = std::min(std::max(0, c_ind), i_I.cols - 1);
 			int r = std::min(std::max(0, r_ind), i_I.rows - 1);
-			o_warped_I.at<float>(i, 0) = (i_I.at<float>(r, c));
+            o_warped_I.at<float>(i, 0) = i_I.at<cv::Vec3f>(r, c)[0];
+            o_warped_I.at<float>(i, 1) = i_I.at<cv::Vec3f>(r, c)[1];
+            o_warped_I.at<float>(i, 2) = i_I.at<cv::Vec3f>(r, c)[2];
+            //std::cout<<o_warped_I.at<float>(i, 0)<<std::endl<<std::endl;
 			//if (c < 0 || i_I.cols - 1 < c || r < 0 || i_I.rows - 1 < r) { //如果超出图像边界
 				//valid.push_back(0);
 				//std::runtime_error("assumes all points are valid.");
@@ -143,10 +146,11 @@ private:
 	void learn_obs_mdl(const cv::Mat &i_I, const cv::Mat &i_X) {//将当前跟踪的区域添加到tracks_
 		int init_size = 5;
 		// obtain/save the corresponding template
-		cv::Mat warped_I(template_pnts_.cols, 1, CV_32F);//记录的是像素值
+        cv::Mat warped_I(template_pnts_.cols, 3, CV_32F);//记录的是像素值
 		//template_pnts_按照i_X进行变换，将变换后坐标对应i_I图中的像素值拷贝到warped_I中，
 		//这里一直按着模板中的进行变换，是否可以在上一次的基础上进行变换
 		warp_template(i_I, i_X, template_pnts_, warped_I);
+        //std::cout<<warped_I<<std::endl<<std::endl;
 		tracks_.push_back(warped_I);//tracks_一直在增大，内存不够？
 		// choose the obs mdl
 		obs_mdl_type_ = params_.obs_mdl_type;
@@ -296,7 +300,7 @@ private:
 	}
 	void eval_obs_mdl(const cv::Mat &i_I, const cv::Mat &i_X, cv::Mat &o_dist, cv::Mat &o_R) {
 
-		cv::Mat warped_I(template_pnts_.cols, 1, CV_32F);
+        cv::Mat warped_I(template_pnts_.cols, 3, CV_32F);
 		//std::cout << template_pnts_.cols << std::endl;
 		warp_template(i_I, i_X, template_pnts_, warped_I);
 		if (obs_mdl_type_.compare("SSD") == 0) {
@@ -306,7 +310,7 @@ private:
 			//if (diff.rows < diff.cols)
 				//std::runtime_error("- invalid shape of diff");
             double len = double(diff.rows);
-            double dist = diff.dot(diff) / len; //点乘求平方
+            double dist = diff.dot(diff) / len/3; //点乘求平方
             o_dist = cv::Mat(1, 1, CV_64F, cv::Scalar(dist));
 			o_R = params_.ssd_params.R;
 		}
@@ -929,19 +933,21 @@ public:
 		snprintf(input_fn, 1024, params_.file_fmt.c_str(), i_t); //将图片命名添加编号补全
         std::string rgb_fn = params_.frame_dir + std::string(input_fn) + std::string(".jpg"); //添加图片完整路径和后缀名称
         //std::cout<<"rgb_fn: "<<rgb_fn<<std::endl;
-        I_ori = cv::imread(rgb_fn.c_str(), CV_LOAD_IMAGE_GRAYSCALE); //以灰度图格式载入原始图片
-		I_ori.convertTo(i_inputs.I, CV_32F, 1.0 / 255.0);//把一个矩阵从一种数据类型转换到另一种数据类型，这里是对图像像素值归一化
+        I_ori = cv::imread(rgb_fn.c_str()); //以灰度图格式载入原始图片, CV_LOAD_IMAGE_GRAYSCALE
+        cv::Mat hsv;
+        cv::cvtColor(I_ori,hsv,CV_BGR2HSV);
+        hsv.convertTo(i_inputs.I, CV_32F, 1.0 / 255.0);//把一个矩阵从一种数据类型转换到另一种数据类型，这里是对图像像素值归一化
 
-		if (params_.state_domain == STATE_DOMAIN::SE3) {
-			// depth
-			std::string d_fn = params_.frame_dir + std::string(input_fn) + std::string("_depth.png");
-			cv::Mat I_ori = cv::imread(rgb_fn.c_str(), CV_LOAD_IMAGE_GRAYSCALE);
-			I_ori.convertTo(i_inputs.I, CV_32F, 1.0 / 255.0);
-			cv::Mat d_ori = cv::imread(d_fn.c_str(), CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR);
-			d_ori.convertTo(i_inputs.D, CV_32F);
-			// point clouds
-			depth2pc(i_inputs.D, params_.K, i_inputs.C);
-		}
+        if (params_.state_domain == STATE_DOMAIN::SE3) {
+            // depth
+            std::string d_fn = params_.frame_dir + std::string(input_fn) + std::string("_depth.png");
+            cv::Mat I_ori = cv::imread(rgb_fn.c_str(), CV_LOAD_IMAGE_GRAYSCALE);
+            I_ori.convertTo(i_inputs.I, CV_32F, 1.0 / 255.0);
+            cv::Mat d_ori = cv::imread(d_fn.c_str(), CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR);
+            d_ori.convertTo(i_inputs.D, CV_32F);
+            // point clouds
+            depth2pc(i_inputs.D, params_.K, i_inputs.C);
+        }
 	}
 	void my_read_inputs(Tracker::Inputs &i_inputs){
 		while(get_new_I==false && ros::ok()){
@@ -979,10 +985,10 @@ public:
 		// ginput
 		cv::Mat means;
 		{
-			cv::Mat xs(1, n_pnts, CV_32F, params_.template_xs.data()); //xs列向量
-			cv::Mat ys(1, n_pnts, CV_32F, params_.template_ys.data()); //ys列向量
+            cv::Mat xs(1, n_pnts, CV_32F, params_.template_xs.data()); //xs列向量,4
+            cv::Mat ys(1, n_pnts, CV_32F, params_.template_ys.data()); //ys列向量,4
 
-			cv::Scalar x_mean = cv::mean(xs);
+            cv::Scalar x_mean = cv::mean(xs);//center
 			cv::Scalar y_mean = cv::mean(ys);
 
 			if (params_.state_domain == STATE_DOMAIN::SE3) {
@@ -1006,7 +1012,7 @@ public:
 				template_poly_pnts_ = template_poly_pnts;
 
 			}
-			else {
+            else {
 				means.push_back(float(x_mean[0]));
 				means.push_back(float(y_mean[0]));
 				means.push_back(float(1.0));
@@ -1079,13 +1085,14 @@ public:
                 for(int i=0;i<n_features;i++){
                     r_ind.at<float>(0,i)=params_.I_template_features[i].y-y_mean[0];
                     c_ind.at<float>(0,i)=params_.I_template_features[i].x-x_mean[0];
-                    //cv::circle(I_ORI_init,cv::Point(params_.I_template_features[i].x,params_.I_template_features[i].y),1,cv::Scalar(255));
-                    I_ORI_init.at<unsigned char>(params_.I_template_features[i].y,params_.I_template_features[i].x)=255;
+                    cv::circle(I_ORI_init,cv::Point(params_.I_template_features[i].x,params_.I_template_features[i].y),1,cv::Scalar(255,255,255));
+                    //I_ORI_init.at<unsigned char>(params_.I_template_features[i].y,params_.I_template_features[i].x)=255;
                     //std::cout<<params_.I_template_features[i].x<<", "<<params_.I_template_features[i].y<<std::endl;
                 }
-                cv::circle(I_ORI_init,cv::Point(x_mean[0],y_mean[0]),3,cv::Scalar(0),2);
+                cv::circle(I_ORI_init,cv::Point(x_mean[0],y_mean[0]),3,cv::Scalar(0,0,0),2);
                 cv::imshow("I_ORI_init",I_ORI_init);
-                //cv::waitKey(0);
+                cv::waitKey(0);
+                //exit(0);
 //				for (int c = 0; c < mask.cols; ++c)	//整幅图像的列数
 //                    for (int r = 0; r < mask.rows; ++r)	{//整幅图像的行数
 //                        if (mask.at<unsigned char>(r, c) == 255) {	//多边形模板区域内
@@ -1374,7 +1381,7 @@ public:
 		cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255),2);
 		// show
 		cv::imshow("tracking...", I);
-		cv::waitKey(1);
+        cv::waitKey(1);
 
         //计时
         /*timeval time_imshow;

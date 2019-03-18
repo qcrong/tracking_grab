@@ -47,7 +47,7 @@ void variable_init(void)
     obj2hand_t<<0,0,-0.13;
 }
 
-//发布末端速度
+//发布速度,速度已经转化到基座标系下了
 void cmd_tool_vel_pub(geometry_msgs::Twist &toolVel_, double time=0){
     tool_vel_pub.publish(toolVel_);
 

@@ -315,12 +315,13 @@ bool load_template_params(const std::string &template_img_dir_,std::vector<cv::P
 bool load_template_params_2D(const cv::Mat &i_ori_,const std::vector<float> &template_xs_,const std::vector<float> &template_ys_,std::vector<cv::Point2f> &I_template_features_){
     /*模板提取边缘，并进行膨胀，获得的特征区域*/
     cv::Mat edge,gray;
-    gray=i_ori_.clone();
-    //cv::cvtColor(i_ori_,gray,cv::COLOR_BGR2GRAY);//模板图像转换为灰度图
+    cv::Mat color_img=i_ori_.clone();
+    cv::cvtColor(i_ori_,gray,cv::COLOR_BGR2GRAY);//模板图像转换为灰度图
+
     cv::blur(gray,edge,cv::Size(3,3));//降噪
     cv::Canny(edge,edge,20,60,3);
     cv::imshow("edge canny",edge);
-    cv::Mat element=cv::getStructuringElement(cv::MORPH_RECT,cv::Size(11,11));//获取自定义核
+    cv::Mat element=cv::getStructuringElement(cv::MORPH_RECT,cv::Size(3,3));//获取自定义核
     cv::dilate(edge,edge,element);//膨胀，扩大两区域
     cv::imshow("edge dilate",edge);
     cv::imshow("template",i_ori_);
@@ -334,7 +335,8 @@ bool load_template_params_2D(const cv::Mat &i_ori_,const std::vector<float> &tem
             //cv::circle(gray,cv::Point(u,v),1,cv::Scalar(255));
             if(edge.at<uchar>(v,u)==255){
                 I_template_features_.push_back(cv::Point2f(u,v));
-                cv::circle(gray,cv::Point(u,v),1,cv::Scalar(255));
+                //color_img.at<uchar>(v,u)=cv::Scalar(255,255,255);
+                cv::circle(color_img,cv::Point(u,v),1,cv::Scalar(255,255,255));
                 //std::cout<<u<<", "<<v<<std::endl;
                 featurePoints++;
             }
@@ -342,7 +344,7 @@ bool load_template_params_2D(const cv::Mat &i_ori_,const std::vector<float> &tem
 
     std::cout<<"allPoints: "<<allPoints<<std::endl;
     std::cout<<"featurePoints: "<<featurePoints<<std::endl;
-    //cv::imshow("gray test uv", gray);
+    //cv::imshow("test uv", color_img);
     //cv::waitKey(0);
 
 
