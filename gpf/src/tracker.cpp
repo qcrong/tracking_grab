@@ -144,157 +144,172 @@ private:
 		//o_warped_I = warped_I;
 	}
 	void learn_obs_mdl(const cv::Mat &i_I, const cv::Mat &i_X) {//将当前跟踪的区域添加到tracks_
-		int init_size = 5;
+        static int init_size = 0;
 		// obtain/save the corresponding template
-        cv::Mat warped_I(template_pnts_.cols, 3, CV_32F);//记录的是像素值
+        //cv::Mat warped_I(template_pnts_.cols, 3, CV_32F);//记录的是像素值
 		//template_pnts_按照i_X进行变换，将变换后坐标对应i_I图中的像素值拷贝到warped_I中，
 		//这里一直按着模板中的进行变换，是否可以在上一次的基础上进行变换
-		warp_template(i_I, i_X, template_pnts_, warped_I);
+        //warp_template(i_I, i_X, template_pnts_, warped_I);
         //std::cout<<warped_I<<std::endl<<std::endl;
-		tracks_.push_back(warped_I);//tracks_一直在增大，内存不够？
+        if(init_size==0){
+            cv::Mat warped_I(template_pnts_.cols, 3, CV_32F);//记录的是像素值
+            warp_template(i_I, i_X, template_pnts_, warped_I);
+            tracks_.push_back(warped_I);//tracks_一直在增大，内存不够？
+            obs_mdl_type_ = params_.obs_mdl_type;
+        }
+        else if(init_size==3){
+            cv::Mat warped_I(template_pnts_.cols, 3, CV_32F);//记录的是像素值
+            warp_template(i_I, i_X, template_pnts_, warped_I);
+            tracks_[0]=0.99*tracks_[0]+0.01*warped_I;
+            init_size=0;
+        }
+        init_size++;
+
 		// choose the obs mdl
-		obs_mdl_type_ = params_.obs_mdl_type;
-		if (obs_mdl_type_.compare("onlinePCA") == 0 && tracks_.size() < init_size)
-			obs_mdl_type_ = "SSD";
-		// update pca
-		if (obs_mdl_type_.compare("onlinePCA") == 0) {
-			if (pca_basis_.cols == 0) {
-				// initiate
-				// X
-				cv::Mat X(tracks_[0].rows, tracks_.size(), CV_32F);
-				for (int i = 0; i < tracks_.size(); ++i)
-					tracks_[i].col(0).copyTo(X.col(i));
-				std::cerr << "- size(X), should be n x 2: " << X.rows << ", " << X.cols << std::endl;
-				// Xbar
-				cv::Mat Xbar;
-				cv::reduce(X, Xbar, 1, CV_REDUCE_AVG);
-				// A = X - Xbar
-				cv::Mat A(X.rows, X.cols, CV_32F);
-				for (int i = 0; i < X.cols; ++i)
-					A.col(i) = X.col(i) - Xbar;
-				// svd(A)
-				cv::Mat U, Vt, sv;
-				cv::SVD::compute(A, sv, U, Vt);
-				std::cerr << "- size(U): " << U.rows << ", " << U.cols << std::endl;
-				std::cerr << "- sv: " << sv << std::endl;
-				// keep valid basis
-				int n_val_basis = std::min(params_.pca_params.n_basis, U.cols);
-				int n_eff_basis = -1;
-				float eff_thres = 0.95;
-				cv::Mat sv_sum;
-				cv::Mat sv_cumsum(1, 1, CV_32F, cv::Scalar(0));
-				cv::reduce(sv, sv_sum, 0, CV_REDUCE_SUM);
-				for (int i = 0; i<sv.rows; ++i) {
-					sv_cumsum += sv.at<float>(i);
-					float thes = sv_cumsum.at<float>(0) / sv_sum.at<float>(0);
-					if (thes > eff_thres) {
-						n_eff_basis = i + 1;
-						break;
-					}
-				}
-				n_val_basis = std::min(n_val_basis, n_eff_basis);
-				std::cerr << "- n_val_basis: " << n_val_basis << std::endl;
-				// save
-				if (n_val_basis > 0) {
-					U.colRange(0, n_val_basis).copyTo(pca_basis_);
-					sv.rowRange(0, n_val_basis).copyTo(pca_svals_);
-					pca_mean_ = Xbar;
-					pca_n_ = X.cols;
 
-					std::cerr << "- initial pca_svals_: " << pca_svals_ << std::endl;
-					std::cerr << "- initial size(pca_basis_): " << pca_basis_.rows << ", " << pca_basis_.cols << std::endl;
-					std::cerr << "- initial pca_basis_[0]: " << pca_basis_.at<float>(0) << std::endl;
-					std::cerr << "- initial pca_n_: " << pca_n_ << std::endl;
-					std::cerr << "- initial size(pca_mean_): " << pca_mean_.rows << ", " << pca_mean_.cols << std::endl;
-					std::cerr << "- initial pca_mean_[0]: " << pca_mean_.at<float>(0) << std::endl;
-				}
-			}
-			else {	//SSD
-				// update
-				if ((tracks_.size() - init_size) % params_.pca_params.update_interval == 0) {	//每5帧更新一次，- init_size是否有必要？
-					int m = params_.pca_params.update_interval;
-					float ff = params_.pca_params.forget_factor;
-					const cv::Mat M = pca_mean_;		//貌似没有初值，第一次执行完本函数后才会更新
-					const cv::Mat U = pca_basis_;		//貌似没有初值，第一次执行完本函数后才会更新
-					const cv::Mat sv = pca_svals_;		//貌似没有初值，第一次执行完本函数后才会更新
-					const int n = pca_n_; //貌似没有初值，第一次执行完本函数后才会更新
-					// B
-					cv::Mat B(tracks_[0].rows, m, CV_32F); //tracks_[0].rows最初要追踪的模板像素个数
-					for (int i = tracks_.size() - m; i < tracks_.size(); ++i)
-						tracks_[i].col(0).copyTo(B.col(i - (tracks_.size() - m)));//把最近的5列数据拷贝到B中
-					std::cerr << "- size(X), should be n x 2: " << B.rows << ", " << B.cols << std::endl; //这个输出无意义
-					// M_B
-					cv::Mat M_B;
-					cv::reduce(B, M_B, 1, CV_REDUCE_AVG);  //列向量求均值
-					// M_C
-					cv::Mat M_C = ff*float(n) / (ff*float(n) + float(m))*M + float(m) / (ff*float(n) + float(m))*M_B;
-					// Bn
-					cv::Mat Bn(B.rows, B.cols, CV_32F);
-					for (int i = 0; i < B.cols; ++i)
-						Bn.col(i) = B.col(i) - M_B;
-					// Badd
-					cv::Mat Badd = std::sqrt(float(n)*float(m) / (float(n) + float(m))) * (M_B - M);
-					// Bh
-					cv::Mat Bh;
-					cv::hconcat(Bn, Badd, Bh);
-					// Bt
-					cv::Mat Bt_i = Bh - U * U.t() * Bh;
-					cv::Mat Bt;
-					qr_thin(Bt_i, Bt);
-					std::cerr << "- Bt.size(): " << Bt.rows << ", " << Bt.cols << std::endl;
-					// R
-					cv::Mat R, UB1, UB2, UB, LB1, LB2, LB;
-					UB1 = ff * cv::Mat::diag(sv);
-					UB2 = U.t() * Bh;
-					cv::hconcat(UB1, UB2, UB);
-					LB1 = cv::Mat::zeros(Bt.cols, sv.rows, CV_32F);
-					LB2 = Bt.t() * Bt_i;
-					cv::hconcat(LB1, LB2, LB);
-					R.push_back(UB);
-					R.push_back(LB);
-					std::cerr << "- R.size(): " << R.rows << ", " << R.cols << std::endl;
-					// svd(R)
-					cv::Mat svt, Ut, Vtt;
-					cv::SVD::compute(R, svt, Ut, Vtt);
-					std::cerr << "- S of svd(R): " << svt << std::endl;
-					// keep valid basis
-					int n_val_basis = std::min(params_.pca_params.n_basis, Ut.cols);
-					int n_eff_basis = -1;
-					float eff_thres = 0.95;
-					cv::Mat sv_sum;
-					cv::Mat sv_cumsum(1, 1, CV_32F, cv::Scalar(0));
-					cv::reduce(svt, sv_sum, 0, CV_REDUCE_SUM);
-					for (int i = 0; i<svt.rows; ++i) {
-						sv_cumsum += svt.at<float>(i);
-						float thes = sv_cumsum.at<float>(0) / sv_sum.at<float>(0);
-						if (thes > eff_thres) {
-							n_eff_basis = i + 1;
-							break;
-						}
-					}
-					n_val_basis = std::min(n_val_basis, n_eff_basis);
-					std::cerr << "- n_val_basis: " << n_val_basis << std::endl;
-					// save
-					cv::Mat UBt, U_C, sv_C;
-					cv::hconcat(U, Bt, UBt);
-					U_C = UBt * Ut.colRange(0, n_val_basis);
-					sv_C = svt.rowRange(0, n_val_basis);
 
-					U_C.copyTo(pca_basis_);
-					sv_C.copyTo(pca_svals_);
-					pca_mean_ = M_C;
-					pca_n_ = m + n;
 
-					std::cerr << "- updated pca_svals_: " << pca_svals_ << std::endl;
-					std::cerr << "- updated size(pca_basis_): " << pca_basis_.rows << ", " << pca_basis_.cols << std::endl;
-					std::cerr << "- updated pca_basis_[0]: " << pca_basis_.at<float>(0) << std::endl;
-					std::cerr << "- updated pca_n_: " << pca_n_ << std::endl;
-					std::cerr << "- updated size(pca_mean_): " << pca_mean_.rows << ", " << pca_mean_.cols << std::endl;
-					std::cerr << "- updated pca_mean_[0]: " << pca_mean_.at<float>(0) << std::endl;
-				}
-			}
+//		if (obs_mdl_type_.compare("onlinePCA") == 0 && tracks_.size() < init_size)
+//			obs_mdl_type_ = "SSD";
+//		// update pca
+//		if (obs_mdl_type_.compare("onlinePCA") == 0) {
+//			if (pca_basis_.cols == 0) {
+//				// initiate
+//				// X
+//				cv::Mat X(tracks_[0].rows, tracks_.size(), CV_32F);
+//				for (int i = 0; i < tracks_.size(); ++i)
+//					tracks_[i].col(0).copyTo(X.col(i));
+//				std::cerr << "- size(X), should be n x 2: " << X.rows << ", " << X.cols << std::endl;
+//				// Xbar
+//				cv::Mat Xbar;
+//				cv::reduce(X, Xbar, 1, CV_REDUCE_AVG);
+//				// A = X - Xbar
+//				cv::Mat A(X.rows, X.cols, CV_32F);
+//				for (int i = 0; i < X.cols; ++i)
+//					A.col(i) = X.col(i) - Xbar;
+//				// svd(A)
+//				cv::Mat U, Vt, sv;
+//				cv::SVD::compute(A, sv, U, Vt);
+//				std::cerr << "- size(U): " << U.rows << ", " << U.cols << std::endl;
+//				std::cerr << "- sv: " << sv << std::endl;
+//				// keep valid basis
+//				int n_val_basis = std::min(params_.pca_params.n_basis, U.cols);
+//				int n_eff_basis = -1;
+//				float eff_thres = 0.95;
+//				cv::Mat sv_sum;
+//				cv::Mat sv_cumsum(1, 1, CV_32F, cv::Scalar(0));
+//				cv::reduce(sv, sv_sum, 0, CV_REDUCE_SUM);
+//				for (int i = 0; i<sv.rows; ++i) {
+//					sv_cumsum += sv.at<float>(i);
+//					float thes = sv_cumsum.at<float>(0) / sv_sum.at<float>(0);
+//					if (thes > eff_thres) {
+//						n_eff_basis = i + 1;
+//						break;
+//					}
+//				}
+//				n_val_basis = std::min(n_val_basis, n_eff_basis);
+//				std::cerr << "- n_val_basis: " << n_val_basis << std::endl;
+//				// save
+//				if (n_val_basis > 0) {
+//					U.colRange(0, n_val_basis).copyTo(pca_basis_);
+//					sv.rowRange(0, n_val_basis).copyTo(pca_svals_);
+//					pca_mean_ = Xbar;
+//					pca_n_ = X.cols;
 
-		}
+//					std::cerr << "- initial pca_svals_: " << pca_svals_ << std::endl;
+//					std::cerr << "- initial size(pca_basis_): " << pca_basis_.rows << ", " << pca_basis_.cols << std::endl;
+//					std::cerr << "- initial pca_basis_[0]: " << pca_basis_.at<float>(0) << std::endl;
+//					std::cerr << "- initial pca_n_: " << pca_n_ << std::endl;
+//					std::cerr << "- initial size(pca_mean_): " << pca_mean_.rows << ", " << pca_mean_.cols << std::endl;
+//					std::cerr << "- initial pca_mean_[0]: " << pca_mean_.at<float>(0) << std::endl;
+//				}
+//			}
+//			else {	//SSD
+//				// update
+//				if ((tracks_.size() - init_size) % params_.pca_params.update_interval == 0) {	//每5帧更新一次，- init_size是否有必要？
+//					int m = params_.pca_params.update_interval;
+//					float ff = params_.pca_params.forget_factor;
+//					const cv::Mat M = pca_mean_;		//貌似没有初值，第一次执行完本函数后才会更新
+//					const cv::Mat U = pca_basis_;		//貌似没有初值，第一次执行完本函数后才会更新
+//					const cv::Mat sv = pca_svals_;		//貌似没有初值，第一次执行完本函数后才会更新
+//					const int n = pca_n_; //貌似没有初值，第一次执行完本函数后才会更新
+//					// B
+//					cv::Mat B(tracks_[0].rows, m, CV_32F); //tracks_[0].rows最初要追踪的模板像素个数
+//					for (int i = tracks_.size() - m; i < tracks_.size(); ++i)
+//						tracks_[i].col(0).copyTo(B.col(i - (tracks_.size() - m)));//把最近的5列数据拷贝到B中
+//					std::cerr << "- size(X), should be n x 2: " << B.rows << ", " << B.cols << std::endl; //这个输出无意义
+//					// M_B
+//					cv::Mat M_B;
+//					cv::reduce(B, M_B, 1, CV_REDUCE_AVG);  //列向量求均值
+//					// M_C
+//					cv::Mat M_C = ff*float(n) / (ff*float(n) + float(m))*M + float(m) / (ff*float(n) + float(m))*M_B;
+//					// Bn
+//					cv::Mat Bn(B.rows, B.cols, CV_32F);
+//					for (int i = 0; i < B.cols; ++i)
+//						Bn.col(i) = B.col(i) - M_B;
+//					// Badd
+//					cv::Mat Badd = std::sqrt(float(n)*float(m) / (float(n) + float(m))) * (M_B - M);
+//					// Bh
+//					cv::Mat Bh;
+//					cv::hconcat(Bn, Badd, Bh);
+//					// Bt
+//					cv::Mat Bt_i = Bh - U * U.t() * Bh;
+//					cv::Mat Bt;
+//					qr_thin(Bt_i, Bt);
+//					std::cerr << "- Bt.size(): " << Bt.rows << ", " << Bt.cols << std::endl;
+//					// R
+//					cv::Mat R, UB1, UB2, UB, LB1, LB2, LB;
+//					UB1 = ff * cv::Mat::diag(sv);
+//					UB2 = U.t() * Bh;
+//					cv::hconcat(UB1, UB2, UB);
+//					LB1 = cv::Mat::zeros(Bt.cols, sv.rows, CV_32F);
+//					LB2 = Bt.t() * Bt_i;
+//					cv::hconcat(LB1, LB2, LB);
+//					R.push_back(UB);
+//					R.push_back(LB);
+//					std::cerr << "- R.size(): " << R.rows << ", " << R.cols << std::endl;
+//					// svd(R)
+//					cv::Mat svt, Ut, Vtt;
+//					cv::SVD::compute(R, svt, Ut, Vtt);
+//					std::cerr << "- S of svd(R): " << svt << std::endl;
+//					// keep valid basis
+//					int n_val_basis = std::min(params_.pca_params.n_basis, Ut.cols);
+//					int n_eff_basis = -1;
+//					float eff_thres = 0.95;
+//					cv::Mat sv_sum;
+//					cv::Mat sv_cumsum(1, 1, CV_32F, cv::Scalar(0));
+//					cv::reduce(svt, sv_sum, 0, CV_REDUCE_SUM);
+//					for (int i = 0; i<svt.rows; ++i) {
+//						sv_cumsum += svt.at<float>(i);
+//						float thes = sv_cumsum.at<float>(0) / sv_sum.at<float>(0);
+//						if (thes > eff_thres) {
+//							n_eff_basis = i + 1;
+//							break;
+//						}
+//					}
+//					n_val_basis = std::min(n_val_basis, n_eff_basis);
+//					std::cerr << "- n_val_basis: " << n_val_basis << std::endl;
+//					// save
+//					cv::Mat UBt, U_C, sv_C;
+//					cv::hconcat(U, Bt, UBt);
+//					U_C = UBt * Ut.colRange(0, n_val_basis);
+//					sv_C = svt.rowRange(0, n_val_basis);
+
+//					U_C.copyTo(pca_basis_);
+//					sv_C.copyTo(pca_svals_);
+//					pca_mean_ = M_C;
+//					pca_n_ = m + n;
+
+//					std::cerr << "- updated pca_svals_: " << pca_svals_ << std::endl;
+//					std::cerr << "- updated size(pca_basis_): " << pca_basis_.rows << ", " << pca_basis_.cols << std::endl;
+//					std::cerr << "- updated pca_basis_[0]: " << pca_basis_.at<float>(0) << std::endl;
+//					std::cerr << "- updated pca_n_: " << pca_n_ << std::endl;
+//					std::cerr << "- updated size(pca_mean_): " << pca_mean_.rows << ", " << pca_mean_.cols << std::endl;
+//					std::cerr << "- updated pca_mean_[0]: " << pca_mean_.at<float>(0) << std::endl;
+//				}
+//			}
+
+//		}
 
 
 	}
@@ -1160,7 +1175,7 @@ public:
 		cv::Mat X_opt;
 		find_X_opt(particles_res, w_res, X_opt);
 		// learn obs mdl
-		//learn_obs_mdl(i_I, X_opt);
+        learn_obs_mdl(i_I, X_opt);
 		// update X, particles, w
 		state_.X = X_opt;
 		particles_ = particles_res;
