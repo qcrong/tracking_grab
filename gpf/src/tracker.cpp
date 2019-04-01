@@ -1211,7 +1211,7 @@ public:
 		}
 		const cv::Point *pts[1] = { pnts.data() };
 		const int npts[1] = { (int)pnts.size() };
-		polylines(I, pts, npts, 1, true, cv::Scalar(255, 0, 0), 2); //绘制包围多边形
+        polylines(I, pts, npts, 1, true, cv::Scalar(0, 0, 255), 2); //绘制包围多边形
 		
 		// draw t ::FIXME: access to private vars
 		//int n_particles = particles_.size();
@@ -1241,7 +1241,7 @@ public:
 		//}
 
 		cv::Point2i p((int)i_X.at<float>(0,2), (int)i_X.at<float>(1,2));
-		circle(I, p, 2, cv::Scalar(255),-1);//画多边形中心
+        circle(I, p, 2, cv::Scalar(0,0,255),-1);//画多边形中心
 
 
         //防止边缘点超出物品边界，收缩为原来的1/5
@@ -1393,7 +1393,7 @@ public:
 		// add a title
 		char title[20];
 		snprintf(title,20, "%.02f fps", fps);
-		cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255),2);
+        cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,0,255),2);
 		// show
 		cv::imshow("tracking...", I);
         cv::waitKey(1);
