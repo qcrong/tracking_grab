@@ -29,6 +29,8 @@ public:
 		//video setting
 		std::string frame_dir;//视频帧路径
 		std::string file_fmt; //file format  文件名
+        std::string connersOut_dir;//跟踪角点保存路径
+        std::string fpsOut_dir;//平均帧率路径
 		int init_frame;
 		int start_frame;
 		int end_frame;
@@ -95,6 +97,9 @@ private:
 //	double camera_fy;
 	//长边编号和短边编号
     int far_point, near_point;
+    std::ofstream cornersOut; //四个角点跟踪结果输出
+    double fps;
+    double argFps;
 
 private:
 	void warp_template(const cv::Mat &i_I, const cv::Mat &i_X, const cv::Mat &i_template_pnts, cv::Mat &o_warped_I) {
@@ -870,12 +875,37 @@ private:
                break;
            }
        }
+        // connersOut_dir
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.connersOut_dir = line;
+                //std::cout<<line<<std::endl;
+                break;
+            }
+        }
+
+        // fpsOut_dir
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.fpsOut_dir = line;
+                //std::cout<<line<<std::endl;
+                break;
+            }
+        }
 
 	}
 
 public:
 	Tracker(const std::string &i_conf_fn) {
 		load_params(i_conf_fn);
+        cornersOut=std::ofstream(params_.connersOut_dir);
+        if(!cornersOut){
+            std::cout<<"open connersOut faild"<<std::endl;
+            exit(-1);
+        }
+        argFps=0.0;
 		//std::cout<<"load successed"<<std::endl;
 //        if (load_template_params(params_.template_img_dir,params_.I_template_conners,params_.I_template_features)==false){
 //            exit(-1);
@@ -1170,7 +1200,7 @@ public:
         double time_cur_sec=time_cur.tv_sec+time_cur.tv_usec/1000000.0;
         //clock_t time_cur = clock();
         //double time_cur_sec = double(time_cur) / CLOCKS_PER_SEC;
-		double fps = 1.0 / (time_cur_sec - time_prev_sec_);
+        fps = 1.0 / (time_cur_sec - time_prev_sec_);
         //time_prev_sec_ = time_cur_sec;
 		// draw X
 		cv::Mat poly;
@@ -1186,7 +1216,9 @@ public:
 		for (int i = 0; i < poly.cols; ++i) {
 			cv::Point p((int)std::round(poly.at<float>(0, i)),(int)std::round(poly.at<float>(1, i)));
 			pnts.push_back(p);
+            cornersOut<<p.x<<" "<<p.y<<" ";
 		}
+        cornersOut<<std::endl;
 		const cv::Point *pts[1] = { pnts.data() };
 		const int npts[1] = { (int)pnts.size() };
 		polylines(I, pts, npts, 1, true, cv::Scalar(255, 0, 0), 2); //绘制包围多边形
@@ -1371,7 +1403,11 @@ public:
 		// add a title
 		char title[20];
 		snprintf(title,20, "%.02f fps", fps);
-		cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255),2);
+        cv::putText(I, title, cv::Point(100, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255),2);
+        char title2[10];
+        snprintf(title2,10, "%d", i_t);
+        cv::putText(I, title2, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255),2);
+
 		// show
 		cv::imshow("tracking...", I);
 		cv::waitKey(1);
@@ -1434,7 +1470,7 @@ public:
 
 	void Run() {
 		// track
-        for (unsigned int t = params_.start_frame; t<params_.end_frame; t++) {
+        for (unsigned int t = params_.start_frame; t<=params_.end_frame; t++) {
             std::string fn_out = params_.id + std::string("/") + std::to_string(t) + std::string(".jpg"); //输出图片文件路径和文件名
             //std::cout<<"fn_out:"<<fn_out<<std::endl;
 			Tracker::Inputs I;  //像素归一化后的图像
@@ -1471,14 +1507,27 @@ public:
 				Init(I, X_opt);		//对于彩图，X_opt为3X3向量，对角线为1，最后一列前两行为模板顶点X和Y的均值，粒子都在中心点
                 //std::cout<<"init finished"<<std::endl;
 			}
-			else
-				Track(I, t, X_opt);
-
-			Show(I_ORI, X_opt, t, fn_out);
+            else{
+                Track(I, t, X_opt);
+                argFps+=fps;
+            }
+            Show(I_ORI, X_opt, t, fn_out);
             //cv::waitKey(0);
-			//std::cout<<"show finished"<<std::endl;
-		}
-	}
+            //std::cout<<"show finished"<<std::endl;
+        }
+        //保存平均帧率
+        std::ofstream argFpsOut(params_.fpsOut_dir);
+        if(!argFpsOut){
+            std::cout<<"open Dog1_fps.txt failed"<<std::endl;
+        }
+        else{
+            argFps/=params_.end_frame;
+            argFpsOut<<argFps<<std::endl;
+        }
+        //关闭输出文件
+        cornersOut.close();
+        argFpsOut.close();
+    }
 };
 
 
