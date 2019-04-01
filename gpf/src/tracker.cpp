@@ -9,8 +9,8 @@ public:
 	};
 	struct Inputs {
 		cv::Mat I; // image
-		cv::Mat D; // depth
-		cv::Mat C; // point cloud
+        //cv::Mat D; // depth
+        //cv::Mat C; // point cloud
 	};
 	struct SSDParams {
 		cv::Mat R;  //1X1
@@ -29,6 +29,8 @@ public:
 		//video setting
 		std::string frame_dir;//视频帧路径
 		std::string file_fmt; //file format  文件名
+        std::string connersOut_dir;//跟踪角点保存路径
+        std::string fpsOut_dir;//平均帧率路径
 		int init_frame;
 		int start_frame;
 		int end_frame;
@@ -95,18 +97,20 @@ private:
 //	double camera_fy;
 	//长边编号和短边编号
     int far_point, near_point;
+    std::ofstream cornersOut; //四个角点跟踪结果输出
+    double argFps;
 
 private:
 	void warp_template(const cv::Mat &i_I, const cv::Mat &i_X, const cv::Mat &i_template_pnts, cv::Mat &o_warped_I) {
 		// warp（弯曲，使变形） points
 		cv::Mat warped_pnts;
-		if (params_.state_domain == STATE_DOMAIN::SE3) {
-			cv::Mat X_rot = i_X * i_template_pnts;
-			warped_pnts = params_.K * X_rot.rowRange(0, 3);
-		}
-		else {
+//		if (params_.state_domain == STATE_DOMAIN::SE3) {
+//			cv::Mat X_rot = i_X * i_template_pnts;
+//			warped_pnts = params_.K * X_rot.rowRange(0, 3);
+//		}
+//		else {
 			warped_pnts = i_X * i_template_pnts;
-		}
+//		}
 		// convert to int
 		//std::vector<int> c_ind(warped_pnts.cols), r_ind(warped_pnts.cols);//valid的值并没有传到子函数外起什么作用, valid
 		int c_ind, r_ind;
@@ -373,33 +377,33 @@ private:
 			// X_t
 			//cv::Mat X1;
 			cv::Mat X;
-			switch (params_.state_domain) {
-			case STATE_DOMAIN::Aff2:
+//			switch (params_.state_domain) {
+//			case STATE_DOMAIN::Aff2:
 			{
 				my_mvnrnd_aff2(i_particles[i].state.X, i_particles[i].ar.A, params_.Q, params_.E, X);
 				//mvnrnd_aff2(f_X_prev, params_.Q, params_.E, X);//输出X，方程（20）但是少了根号下的deltat
 			}
-				break;
-			case STATE_DOMAIN::SL3:
-			{
-				cv::Mat X_prev = i_particles[i].state.X;
-				cv::Mat A_prev = i_particles[i].ar.A;
-				cv::Mat f_X_prev;
-				transit_state(X_prev, A_prev, f_X_prev);	//f_X_prev=X_prev*e^A_prev，并进行了归一化？？？
-				mvnrnd_sl3(f_X_prev, params_.Q, params_.E, X);
-			}
+//				break;
+//			case STATE_DOMAIN::SL3:
+//			{
+//				cv::Mat X_prev = i_particles[i].state.X;
+//				cv::Mat A_prev = i_particles[i].ar.A;
+//				cv::Mat f_X_prev;
+//				transit_state(X_prev, A_prev, f_X_prev);	//f_X_prev=X_prev*e^A_prev，并进行了归一化？？？
+//				mvnrnd_sl3(f_X_prev, params_.Q, params_.E, X);
+//			}
 				
-				break;
-			case STATE_DOMAIN::SE3:
-			{
-				cv::Mat X_prev = i_particles[i].state.X;
-				cv::Mat A_prev = i_particles[i].ar.A;
-				cv::Mat f_X_prev;
-				transit_state(X_prev, A_prev, f_X_prev);	//f_X_prev=X_prev*e^A_prev，并进行了归一化？？？
-				mvnrnd_se3(f_X_prev, params_.Q, params_.E, X);
-			}
-				break;
-			}
+//				break;
+//			case STATE_DOMAIN::SE3:
+//			{
+//				cv::Mat X_prev = i_particles[i].state.X;
+//				cv::Mat A_prev = i_particles[i].ar.A;
+//				cv::Mat f_X_prev;
+//				transit_state(X_prev, A_prev, f_X_prev);	//f_X_prev=X_prev*e^A_prev，并进行了归一化？？？
+//				mvnrnd_se3(f_X_prev, params_.Q, params_.E, X);
+//			}
+//				break;
+//			}
 			// A_t
 			//std::cout << "X:" << X << std::endl;
 
@@ -487,8 +491,8 @@ private:
 	}
 
 	void find_X_opt(std::vector<Tracker::Particle> &i_particles, std::vector<float> &i_w, cv::Mat &o_X_opt) {
-		switch (params_.state_domain) {
-		case STATE_DOMAIN::Aff2:
+//		switch (params_.state_domain) {
+//		case STATE_DOMAIN::Aff2:
 		{
 			int n_particles = i_particles.size();
 			// find max ind
@@ -542,79 +546,79 @@ private:
 			o_X_opt.at<float>(1, 2) = t2;
 			o_X_opt.at<float>(2, 2) = 1;
 		}
-			break;
+//			break;
 
-		case STATE_DOMAIN::SL3:
-		{
-			double thres = 1e-4;
-			int n_particles = i_particles.size();
-			cv::Mat mu;
-			i_particles[0].state.X.copyTo(mu);
-			do {
-				cv::Mat mu_inv = mu.inv();
-				cv::Mat log_sum(mu.rows, mu.cols, CV_32F, cv::Scalar(0));
-				for (int i = 0; i < n_particles; ++i) {
-					cv::Mat dX = mu_inv * i_particles[i].state.X;
-					cv::Mat log_dX;
-					logm(dX, log_dX);
-					log_sum += log_dX;
-				}
-				cv::Mat dmu;
-				log_sum /= float(n_particles);
-				expm(log_sum, dmu);
-				mu *= dmu;
-				cv::Mat log_dmu;
-				logm(dmu, log_dmu);
-				if (cv::norm(log_dmu.reshape(log_dmu.rows*log_dmu.cols)) < thres)
-					break;
-			} while (true);
+//		case STATE_DOMAIN::SL3:
+//		{
+//			double thres = 1e-4;
+//			int n_particles = i_particles.size();
+//			cv::Mat mu;
+//			i_particles[0].state.X.copyTo(mu);
+//			do {
+//				cv::Mat mu_inv = mu.inv();
+//				cv::Mat log_sum(mu.rows, mu.cols, CV_32F, cv::Scalar(0));
+//				for (int i = 0; i < n_particles; ++i) {
+//					cv::Mat dX = mu_inv * i_particles[i].state.X;
+//					cv::Mat log_dX;
+//					logm(dX, log_dX);
+//					log_sum += log_dX;
+//				}
+//				cv::Mat dmu;
+//				log_sum /= float(n_particles);
+//				expm(log_sum, dmu);
+//				mu *= dmu;
+//				cv::Mat log_dmu;
+//				logm(dmu, log_dmu);
+//				if (cv::norm(log_dmu.reshape(log_dmu.rows*log_dmu.cols)) < thres)
+//					break;
+//			} while (true);
 
-			// return
-			o_X_opt = mu;
-			o_X_opt /= o_X_opt.at<float>(o_X_opt.rows - 1, o_X_opt.cols - 1); //FIXME: okay?
-			// det(X) = 1
-			o_X_opt = o_X_opt / std::pow(cv::determinant(o_X_opt), 1 / o_X_opt.rows);
-		}
-			break;
+//			// return
+//			o_X_opt = mu;
+//			o_X_opt /= o_X_opt.at<float>(o_X_opt.rows - 1, o_X_opt.cols - 1); //FIXME: okay?
+//			// det(X) = 1
+//			o_X_opt = o_X_opt / std::pow(cv::determinant(o_X_opt), 1 / o_X_opt.rows);
+//		}
+//			break;
 
-		case STATE_DOMAIN::SE3:
-		{
-			int n_particles = i_particles.size();
-			// arithmetic mean of R, R_am
-			cv::Mat R_am(3, 3, CV_32F, cv::Scalar(0));
-			for (int r = 0; r < R_am.rows; ++r)
-			for (int c = 0; c < R_am.cols; ++c)
-			for (int i = 0; i<n_particles; ++i)
-				R_am.at<float>(r, c) += i_particles[i].state.X.at<float>(r, c) / float(n_particles);
-			// R_m
-			cv::Mat R_amt = R_am.t();
-			float d_a[9] = { 1, 0, 0, 0, 1, 0, 0, 0, -1 };
-			cv::Mat d(3, 3, CV_32F, d_a);
-			cv::Mat U, Vt, sv, R_m;
-			cv::SVD::compute(R_amt, sv, U, Vt);
-			if (cv::determinant(R_amt) > 0)
-				R_m = Vt.t() * U.t();
-			else
-				//Rm = V * diag([1 1 -1]) * U';
-				R_m = Vt.t() * d * U.t();
+//		case STATE_DOMAIN::SE3:
+//		{
+//			int n_particles = i_particles.size();
+//			// arithmetic mean of R, R_am
+//			cv::Mat R_am(3, 3, CV_32F, cv::Scalar(0));
+//			for (int r = 0; r < R_am.rows; ++r)
+//			for (int c = 0; c < R_am.cols; ++c)
+//			for (int i = 0; i<n_particles; ++i)
+//				R_am.at<float>(r, c) += i_particles[i].state.X.at<float>(r, c) / float(n_particles);
+//			// R_m
+//			cv::Mat R_amt = R_am.t();
+//			float d_a[9] = { 1, 0, 0, 0, 1, 0, 0, 0, -1 };
+//			cv::Mat d(3, 3, CV_32F, d_a);
+//			cv::Mat U, Vt, sv, R_m;
+//			cv::SVD::compute(R_amt, sv, U, Vt);
+//			if (cv::determinant(R_amt) > 0)
+//				R_m = Vt.t() * U.t();
+//			else
+//				//Rm = V * diag([1 1 -1]) * U';
+//				R_m = Vt.t() * d * U.t();
 
-			// arithmetic mean of t, t_am
-			cv::Mat t(3, 1, CV_32F, cv::Scalar(0));
-			for (int i = 0; i < n_particles; ++i) {
-				t.at<float>(0, 0) += i_particles[i].state.X.at<float>(0, 3) / float(n_particles);
-				t.at<float>(1, 0) += i_particles[i].state.X.at<float>(1, 3) / float(n_particles);
-				t.at<float>(2, 0) += i_particles[i].state.X.at<float>(2, 3) / float(n_particles);
-			}
-			// return
-			cv::Mat last_row(1, 4, CV_32F, cv::Scalar(0));
-			last_row.at<float>(0, 3) = 1;
-			cv::Mat X_opt;
-			cv::hconcat(R_m, t, X_opt);
-			X_opt.push_back(last_row);
-			o_X_opt = X_opt;
-		}
-			break;
-		}
+//			// arithmetic mean of t, t_am
+//			cv::Mat t(3, 1, CV_32F, cv::Scalar(0));
+//			for (int i = 0; i < n_particles; ++i) {
+//				t.at<float>(0, 0) += i_particles[i].state.X.at<float>(0, 3) / float(n_particles);
+//				t.at<float>(1, 0) += i_particles[i].state.X.at<float>(1, 3) / float(n_particles);
+//				t.at<float>(2, 0) += i_particles[i].state.X.at<float>(2, 3) / float(n_particles);
+//			}
+//			// return
+//			cv::Mat last_row(1, 4, CV_32F, cv::Scalar(0));
+//			last_row.at<float>(0, 3) = 1;
+//			cv::Mat X_opt;
+//			cv::hconcat(R_m, t, X_opt);
+//			X_opt.push_back(last_row);
+//			o_X_opt = X_opt;
+//		}
+//			break;
+//		}
 	}
 
 	void load_params(const std::string &i_conf_fn) {
@@ -890,11 +894,37 @@ private:
            }
        }
 
+        // connersOut_dir
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.connersOut_dir = line;
+                //std::cout<<line<<std::endl;
+                break;
+            }
+        }
+
+        // fpsOut_dir
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.fpsOut_dir = line;
+                //std::cout<<line<<std::endl;
+                break;
+            }
+        }
+
 	}
 
 public:
 	Tracker(const std::string &i_conf_fn) {
 		load_params(i_conf_fn);
+        cornersOut=std::ofstream(params_.connersOut_dir);
+        if(!cornersOut){
+            std::cout<<"open connersOut faild"<<std::endl;
+            exit(-1);
+        }
+        argFps=0.0;
 		//std::cout<<"load successed"<<std::endl;
 //        if (load_template_params(params_.template_img_dir,params_.I_template_conners,params_.I_template_features)==false){
 //            exit(-1);
@@ -953,16 +983,16 @@ public:
         cv::cvtColor(I_ori,hsv,CV_BGR2HSV);
         hsv.convertTo(i_inputs.I, CV_32F, 1.0 / 255.0);//把一个矩阵从一种数据类型转换到另一种数据类型，这里是对图像像素值归一化
 
-        if (params_.state_domain == STATE_DOMAIN::SE3) {
-            // depth
-            std::string d_fn = params_.frame_dir + std::string(input_fn) + std::string("_depth.png");
-            cv::Mat I_ori = cv::imread(rgb_fn.c_str(), CV_LOAD_IMAGE_GRAYSCALE);
-            I_ori.convertTo(i_inputs.I, CV_32F, 1.0 / 255.0);
-            cv::Mat d_ori = cv::imread(d_fn.c_str(), CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR);
-            d_ori.convertTo(i_inputs.D, CV_32F);
-            // point clouds
-            depth2pc(i_inputs.D, params_.K, i_inputs.C);
-        }
+//        if (params_.state_domain == STATE_DOMAIN::SE3) {
+//            // depth
+//            std::string d_fn = params_.frame_dir + std::string(input_fn) + std::string("_depth.png");
+//            cv::Mat I_ori = cv::imread(rgb_fn.c_str(), CV_LOAD_IMAGE_GRAYSCALE);
+//            I_ori.convertTo(i_inputs.I, CV_32F, 1.0 / 255.0);
+//            cv::Mat d_ori = cv::imread(d_fn.c_str(), CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR);
+//            d_ori.convertTo(i_inputs.D, CV_32F);
+//            // point clouds
+//            depth2pc(i_inputs.D, params_.K, i_inputs.C);
+//        }
 	}
 	void my_read_inputs(Tracker::Inputs &i_inputs){
 		while(get_new_I==false && ros::ok()){
@@ -1006,28 +1036,28 @@ public:
             cv::Scalar x_mean = cv::mean(xs);//center
 			cv::Scalar y_mean = cv::mean(ys);
 
-			if (params_.state_domain == STATE_DOMAIN::SE3) {
-				int x_c = std::round(x_mean[0]);
-				int y_c = std::round(y_mean[0]);
-				means = cv::Mat(3, 1, CV_32F);
-				means.at<float>(0) = i_inputs.C.at<float>(y_c, x_c, 0);
-				means.at<float>(1) = i_inputs.C.at<float>(y_c, x_c, 1);
-				means.at<float>(2) = i_inputs.C.at<float>(y_c, x_c, 2);
+//			if (params_.state_domain == STATE_DOMAIN::SE3) {
+//				int x_c = std::round(x_mean[0]);
+//				int y_c = std::round(y_mean[0]);
+//				means = cv::Mat(3, 1, CV_32F);
+//				means.at<float>(0) = i_inputs.C.at<float>(y_c, x_c, 0);
+//				means.at<float>(1) = i_inputs.C.at<float>(y_c, x_c, 1);
+//				means.at<float>(2) = i_inputs.C.at<float>(y_c, x_c, 2);
 
-				cv::Mat template_poly_pnts(4, n_pnts, CV_32F);
-				for (int i = 0; i < n_pnts; ++i) {
-					int x = std::round(xs.at<float>(i));
-					int y = std::round(ys.at<float>(i));
+//				cv::Mat template_poly_pnts(4, n_pnts, CV_32F);
+//				for (int i = 0; i < n_pnts; ++i) {
+//					int x = std::round(xs.at<float>(i));
+//					int y = std::round(ys.at<float>(i));
 
-					template_poly_pnts.at<float>(0, i) = i_inputs.C.at<float>(y, x, 0) - means.at<float>(0);
-					template_poly_pnts.at<float>(1, i) = i_inputs.C.at<float>(y, x, 1) - means.at<float>(1);
-					template_poly_pnts.at<float>(2, i) = i_inputs.C.at<float>(y, x, 2) - means.at<float>(2);
-					template_poly_pnts.at<float>(3, i) = 1;
-				}
-				template_poly_pnts_ = template_poly_pnts;
+//					template_poly_pnts.at<float>(0, i) = i_inputs.C.at<float>(y, x, 0) - means.at<float>(0);
+//					template_poly_pnts.at<float>(1, i) = i_inputs.C.at<float>(y, x, 1) - means.at<float>(1);
+//					template_poly_pnts.at<float>(2, i) = i_inputs.C.at<float>(y, x, 2) - means.at<float>(2);
+//					template_poly_pnts.at<float>(3, i) = 1;
+//				}
+//				template_poly_pnts_ = template_poly_pnts;
 
-			}
-            else {
+//			}
+//            else {
 				means.push_back(float(x_mean[0]));
 				means.push_back(float(y_mean[0]));
 				means.push_back(float(1.0));
@@ -1040,7 +1070,7 @@ public:
 				template_poly_pnts_.push_back(xs_c);
 				template_poly_pnts_.push_back(ys_c);
 				template_poly_pnts_.push_back(os);
-			}
+            //}
 		}
 		/*std::cerr << "- template means = " << means << std::endl;
 		std::cerr << "- template_poly_pnts_.rows = " << template_poly_pnts_.rows;
@@ -1050,39 +1080,39 @@ public:
 		{
 
 
-			if (params_.state_domain == STATE_DOMAIN::SE3) {
-                //原来在if外面
-                std::vector<cv::Point> xys(n_pnts);//模板角点按点对存储
-                for (int i = 0; i < n_pnts; ++i) {
-                    cv::Point p((int)params_.template_xs[i], (int)params_.template_ys[i]);
-                    xys[i] = p;
-                }
-                cv::Mat mask(i_I.rows, i_I.cols, CV_8U, cv::Scalar(0));
-                const cv::Point* pnts[1] = { xys.data() };//xys存储数据的起始地址
-                const int cnts[1] = { n_pnts };
-                cv::fillPoly(mask, pnts, cnts, 1, cv::Scalar(255)); //模板区域多边形填充，填充为白色
-                cv::imshow("mask",mask);
+//			if (params_.state_domain == STATE_DOMAIN::SE3) {
+//                //原来在if外面
+//                std::vector<cv::Point> xys(n_pnts);//模板角点按点对存储
+//                for (int i = 0; i < n_pnts; ++i) {
+//                    cv::Point p((int)params_.template_xs[i], (int)params_.template_ys[i]);
+//                    xys[i] = p;
+//                }
+//                cv::Mat mask(i_I.rows, i_I.cols, CV_8U, cv::Scalar(0));
+//                const cv::Point* pnts[1] = { xys.data() };//xys存储数据的起始地址
+//                const int cnts[1] = { n_pnts };
+//                cv::fillPoly(mask, pnts, cnts, 1, cv::Scalar(255)); //模板区域多边形填充，填充为白色
+//                cv::imshow("mask",mask);
 
-				// 3d points
-				cv::Mat template_pnts;
-				for (int c = 0; c < mask.cols; ++c) {
-					for (int r = 0; r < mask.rows; ++r) {
-						if (mask.at<unsigned char>(r, c) == 255) {
-							float x = i_inputs.C.at<float>(r, c, 0);
-							float y = i_inputs.C.at<float>(r, c, 1);
-							float z = i_inputs.C.at<float>(r, c, 2);
-							cv::Mat p(1, 4, CV_32F);
-							p.at<float>(0, 0) = x - means.at<float>(0);
-							p.at<float>(0, 1) = y - means.at<float>(1);
-							p.at<float>(0, 2) = z - means.at<float>(2);
-							p.at<float>(0, 3) = 1;
-							template_pnts.push_back(p);
-						}
-					}
-				}
-				template_pnts_ = template_pnts.t();
-			}
-			else {
+//				// 3d points
+//				cv::Mat template_pnts;
+//				for (int c = 0; c < mask.cols; ++c) {
+//					for (int r = 0; r < mask.rows; ++r) {
+//						if (mask.at<unsigned char>(r, c) == 255) {
+//							float x = i_inputs.C.at<float>(r, c, 0);
+//							float y = i_inputs.C.at<float>(r, c, 1);
+//							float z = i_inputs.C.at<float>(r, c, 2);
+//							cv::Mat p(1, 4, CV_32F);
+//							p.at<float>(0, 0) = x - means.at<float>(0);
+//							p.at<float>(0, 1) = y - means.at<float>(1);
+//							p.at<float>(0, 2) = z - means.at<float>(2);
+//							p.at<float>(0, 3) = 1;
+//							template_pnts.push_back(p);
+//						}
+//					}
+//				}
+//				template_pnts_ = template_pnts.t();
+//			}
+//			else {
 				// 2d points
                 load_template_params_2D(I_ORI,params_.template_xs,params_.template_ys,params_.I_template_features);
 
@@ -1122,7 +1152,7 @@ public:
 				template_pnts_.push_back(c_ind);
 				template_pnts_.push_back(r_ind);
 				template_pnts_.push_back(os);
-			}
+//			}
 			// WHICH ONE IS CORRECT? MATLB? C?
             std::cerr << "- template_pnts_rows = " << template_pnts_.rows << std::endl;
 			std::cerr << "- template_pnts_cols = " << template_pnts_.cols << std::endl;
@@ -1196,19 +1226,21 @@ public:
         //time_prev_sec_ = time_cur_sec;
 		// draw X
 		cv::Mat poly;
-		if (params_.state_domain == STATE_DOMAIN::SE3) {
-			cv::Mat X_rot = i_X * template_poly_pnts_;
-			poly = params_.K * X_rot.rowRange(0, 3);
-		}
-		else {
+//		if (params_.state_domain == STATE_DOMAIN::SE3) {
+//			cv::Mat X_rot = i_X * template_poly_pnts_;
+//			poly = params_.K * X_rot.rowRange(0, 3);
+//		}
+//		else {
 			poly = i_X * template_poly_pnts_; //还原顶点
-		}
+//		}
 		//std::cout << "i_x:" << i_X << std::endl;
 		std::vector<cv::Point> pnts;
 		for (int i = 0; i < poly.cols; ++i) {
 			cv::Point p((int)std::round(poly.at<float>(0, i)),(int)std::round(poly.at<float>(1, i)));
 			pnts.push_back(p);
+            cornersOut<<p.x<<" "<<p.y<<" ";
 		}
+        cornersOut<<std::endl;
 		const cv::Point *pts[1] = { pnts.data() };
 		const int npts[1] = { (int)pnts.size() };
         polylines(I, pts, npts, 1, true, cv::Scalar(0, 0, 255), 2); //绘制包围多边形
@@ -1392,10 +1424,11 @@ public:
 
 		// add a title
 		char title[20];
-		snprintf(title,20, "%.02f fps", fps);
-        cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,0,255),2);
+        snprintf(title,20, "%.02f fps", fps);
+        cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,0,255),2);
 		// show
 		cv::imshow("tracking...", I);
+        argFps+=fps;
         cv::waitKey(1);
 
         //计时
@@ -1456,16 +1489,16 @@ public:
 
 	void Run() {
 		// track
-        for (unsigned int t = params_.start_frame; t<params_.end_frame; t++) {
+        for (unsigned int t = params_.start_frame; t<=params_.end_frame; t++) {
             std::string fn_out = params_.id + std::string("/") + std::to_string(t) + std::string(".jpg"); //输出图片文件路径和文件名
             //std::cout<<"fn_out:"<<fn_out<<std::endl;
 			Tracker::Inputs I;  //像素归一化后的图像
             read_inputs(t, I, I_ORI);	//I的图像为灰度图，且像素经过了归一化
             //my_read_inputs(I);
-			if (I.I.empty())
-			{
-				std::cout << "读图失败" << std::endl;
-			}
+//			if (I.I.empty())
+//			{
+//				std::cout << "读图失败" << std::endl;
+//			}
 //            cv::imshow("test", I.I);
 //            cv::waitKey(0);
 
@@ -1489,17 +1522,29 @@ public:
 				for(int i=0;i<params_.template_ys.size();i++){
 					std::cout<<params_.template_ys[i]<<" ";
 				}
-				std::cout<<std::endl;*/
+				std::cout<<std::endl;*/                
 				Init(I, X_opt);		//对于彩图，X_opt为3X3向量，对角线为1，最后一列前两行为模板顶点X和Y的均值，粒子都在中心点
                 //std::cout<<"init finished"<<std::endl;
 			}
-			else
-				Track(I, t, X_opt);
-
-			Show(I_ORI, X_opt, t, fn_out);
+            else{
+                Track(I, t, X_opt);
+            }
+            Show(I_ORI, X_opt, t, fn_out);
             //cv::waitKey(0);
 			//std::cout<<"show finished"<<std::endl;
 		}
+        //保存平均帧率
+        std::ofstream argFpsOut(params_.fpsOut_dir);
+        if(!argFpsOut){
+            std::cout<<"open Dog1_fps.txt failed"<<std::endl;
+        }
+        else{
+            argFps/=params_.end_frame;
+            argFpsOut<<argFps<<std::endl;
+        }
+        //关闭输出文件
+        cornersOut.close();
+        argFpsOut.close();
 	}
 };
 
