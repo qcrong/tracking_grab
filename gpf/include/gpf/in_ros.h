@@ -320,11 +320,11 @@ bool load_template_params_2D(const cv::Mat &i_ori_,const std::vector<float> &tem
 
     cv::blur(gray,edge,cv::Size(3,3));//降噪
     cv::Canny(edge,edge,20,60,3);
-    cv::imshow("edge canny",edge);
+    //cv::imshow("edge canny",edge);
     cv::Mat element=cv::getStructuringElement(cv::MORPH_RECT,cv::Size(3,3));//获取自定义核
     cv::dilate(edge,edge,element);//膨胀，扩大两区域
-    cv::imshow("edge dilate",edge);
-    cv::imshow("template",i_ori_);
+    //cv::imshow("edge dilate",edge);
+    //cv::imshow("template",i_ori_);
 
     int allPoints=0;
     int featurePoints=0;
@@ -336,7 +336,7 @@ bool load_template_params_2D(const cv::Mat &i_ori_,const std::vector<float> &tem
             if(edge.at<uchar>(v,u)==255){
                 I_template_features_.push_back(cv::Point2f(u,v));
                 //color_img.at<uchar>(v,u)=cv::Scalar(255,255,255);
-                cv::circle(color_img,cv::Point(u,v),1,cv::Scalar(255,255,255));
+                //cv::circle(color_img,cv::Point(u,v),1,cv::Scalar(255,255,255));
                 //std::cout<<u<<", "<<v<<std::endl;
                 featurePoints++;
             }

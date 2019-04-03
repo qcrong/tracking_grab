@@ -31,7 +31,9 @@ public:
 		std::string file_fmt; //file format  文件名
         std::string connersOut_dir;//跟踪角点保存路径
         std::string fpsOut_dir;//平均帧率路径
-		int init_frame;
+        std::string groundtruth_dir;//目标物真值路径
+        int init_group; //初始化组，用于TRE测试
+        int init_frame;
 		int start_frame;
 		int end_frame;
 		float fps;
@@ -42,6 +44,8 @@ public:
 
         std::vector<float> template_xs;  //模板对应当前图像的4个角点x坐标
         std::vector<float> template_ys;	 //模板对应当前图像的4个角点y坐标
+        int width;//包围盒宽度
+        int hight;//包围盒高度
         std::vector<cv::Point2f> I_template_conners;//模板图像四个顶点
         std::vector<cv::Point2f> I_template_features;//模板图像中用于匹配的特征点
 		STATE_DOMAIN state_domain;		//状态变量
@@ -55,6 +59,7 @@ public:
 		PCAParams pca_params;
 
         std::string template_img_dir; //path of template image
+        int stateFlag;
 	};
 	struct State {
 		cv::Mat X;
@@ -98,6 +103,7 @@ private:
 	//长边编号和短边编号
     int far_point, near_point;
     std::ofstream cornersOut; //四个角点跟踪结果输出
+    double fps;
     double argFps;
 
 private:
@@ -652,23 +658,82 @@ private:
 				break;
 			}
 		}
+        // groundtruth_dir
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.groundtruth_dir = line;
+                //std::cout<<line<<std::endl;
+                break;
+            }
+        }
 
-		// init_frame
+        // init_group
 		while (std::getline(conf_file, line)) {
 			if (line[0] == '#' || line.size() == 0) continue;
 			else {
 				std::istringstream iss(line);  //字符串到整形变量
-				iss >> params_.init_frame;
-				//std::cout<<params_.init_frame<<std::endl;
+                iss >> params_.init_group;
+                //std::cout<<params_.init_group<<std::endl;
 				break;
 			}
 		}
-		// start_frame
+        // init_frame start_frame template_xys
 		while (std::getline(conf_file, line)) {
 			if (line[0] == '#' || line.size() == 0) continue;
 			else {
+                int n=0;
 				std::istringstream iss(line);
-				iss >> params_.start_frame;
+                iss >> n;
+                params_.start_frame=(params_.init_group-1)*n+1;
+                params_.init_frame=params_.start_frame;
+                std::ifstream groundtruth(params_.groundtruth_dir);
+                for(int i=0;i<params_.init_frame;i++){
+                    std::getline(groundtruth, line);
+                }
+                int len=line.size();
+                int k=0;
+                std::vector<int> data;
+                for(int i=0;i<len;){
+                    if(line[i]<'0' || line[i]>'9'){
+                        i++;
+                    }
+                    else{
+                        while(line[i]>='0' && line[i]<='9'&& i<len){
+                            k=k*10+(line[i]-'0');
+                            i++;
+                        }
+                        data.push_back(k);
+                        k=0;
+                    }
+                }
+
+
+                //字符串转数组
+//                line+=",";
+//                int len=line.size();
+//                //std::cout<<len<<std::endl;
+//                std::vector<int> data;
+//                for(int i=0;i<len;i++){
+//                    //std::cout<<line.find(",",i)<<std::endl;
+//                    int pos=line.find(",",i);
+//                    if(pos<len){
+//                        int k=atoi(line.substr(i,pos-i).c_str());
+//                        data.push_back(k);
+//                        i=pos;
+//                    }
+//                }
+                params_.template_xs.push_back(data[0]);
+                params_.template_xs.push_back(data[0]);
+                params_.template_xs.push_back(data[0]+data[2]);
+                params_.template_xs.push_back(data[0]+data[2]);
+                params_.template_ys.push_back(data[1]);
+                params_.template_ys.push_back(data[1]+data[3]);
+                params_.template_ys.push_back(data[1]+data[3]);
+                params_.template_ys.push_back(data[1]);
+                params_.width=data[2];
+                params_.hight=data[3];
+
 				break;
 			}
 		}
@@ -868,37 +933,54 @@ private:
 //                break;
 //            }
 //        }
-        while(std::getline(conf_file, line)) {
-           if(line[0] == '#' || line.size() == 0) continue;
-           else {
-               // xs
-               {
-                   std::istringstream iss(line);
-                   std::vector<float> template_xs;
-                   float tmp;
-                   while( iss >> tmp )
-                       template_xs.push_back(tmp);
-                   params_.template_xs = template_xs;
-               }
-               // ys
-               {
-                   std::getline(conf_file, line);
-                   std::istringstream iss(line);
-                   std::vector<float> template_ys;
-                   float tmp;
-                   while( iss >> tmp )
-                       template_ys.push_back(tmp);
-                   params_.template_ys = template_ys;
-               }
-               break;
-           }
-       }
+        //stateFlag
+        //TRE up down left right upleft upright downright downleft 0.8 0.9 1.1 1.2
+        // 0  1   2    3     4     5       6        7        8      9  10  11   12
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                iss >> params_.stateFlag;
+                break;
+            }
+        }
+
+        //template_xys
+//        while(std::getline(conf_file, line)) {
+//           if(line[0] == '#' || line.size() == 0) continue;
+//           else {
+//               std::istringstream iss(line);
+//               int x,y,w,h;
+//               iss>>x;
+//               iss>>y;
+//               iss>>w;
+//               iss>>h;
+//               params_.template_xs.push_back(x);
+//               params_.template_xs.push_back(x);
+//               params_.template_xs.push_back(x+w);
+//               params_.template_xs.push_back(x+w);
+//               params_.template_ys.push_back(y);
+//               params_.template_ys.push_back(y+h);
+//               params_.template_ys.push_back(y+h);
+//               params_.template_ys.push_back(y);
+//               break;
+//           }
+
+//       }
 
         // connersOut_dir
         while (std::getline(conf_file, line)) {
             if (line[0] == '#' || line.size() == 0) continue;
             else {
-                params_.connersOut_dir = line;
+                std::string s=line;
+                char buffer[1024];
+                if(params_.stateFlag==0){
+                    snprintf(buffer, 1024, line.c_str(), params_.init_group); //文件名补全
+                }
+                else{
+                    snprintf(buffer, 1024, line.c_str(), params_.stateFlag); //文件名补全
+                }
+                params_.connersOut_dir=std::string(buffer);
                 //std::cout<<line<<std::endl;
                 break;
             }
@@ -1136,7 +1218,7 @@ public:
                 }
                 cv::circle(I_ORI_init,cv::Point(x_mean[0],y_mean[0]),3,cv::Scalar(0,0,0),2);
                 cv::imshow("I_ORI_init",I_ORI_init);
-                cv::waitKey(0);
+                //cv::waitKey(0);
                 //exit(0);
 //				for (int c = 0; c < mask.cols; ++c)	//整幅图像的列数
 //                    for (int r = 0; r < mask.rows; ++r)	{//整幅图像的行数
@@ -1184,8 +1266,69 @@ public:
 		w_ = std::vector<float>(params_.n_particles, 1 / float(params_.n_particles));
 		// init obs model
 		learn_obs_mdl(i_I, state_.X);
+        o_X_opt = state_.X;
 		// return
-		o_X_opt = state_.X;
+        //SRE测试
+        switch (params_.stateFlag) {
+        case 1:{//up
+            o_X_opt.at<float>(1,2)-=0.1*params_.hight;
+        }
+            break;
+        case 2:{//down
+            o_X_opt.at<float>(1,2)+=0.1*params_.hight;
+        }
+            break;
+        case 3:{//left
+            o_X_opt.at<float>(0,2)-=0.1*params_.width;
+        }
+            break;
+        case 4:{//right
+            o_X_opt.at<float>(0,2)+=0.1*params_.width;
+        }
+            break;
+        case 5:{//upleft
+            o_X_opt.at<float>(1,2)-=0.1*params_.hight;
+            o_X_opt.at<float>(0,2)-=0.1*params_.width;
+        }
+            break;
+        case 6:{//upright
+            o_X_opt.at<float>(1,2)-=0.1*params_.hight;
+            o_X_opt.at<float>(0,2)+=0.1*params_.width;
+        }
+            break;
+        case 7:{//downright
+            o_X_opt.at<float>(1,2)+=0.1*params_.hight;
+            o_X_opt.at<float>(0,2)+=0.1*params_.width;
+        }
+            break;
+        case 8:{//downleft
+            o_X_opt.at<float>(1,2)+=0.1*params_.hight;
+            o_X_opt.at<float>(0,2)-=0.1*params_.width;
+        }
+            break;
+        case 9:{//0.8
+            o_X_opt.at<float>(0,0)=0.8;
+            o_X_opt.at<float>(1,1)=0.8;
+        }
+            break;
+        case 10:{
+            o_X_opt.at<float>(0,0)=0.9;
+            o_X_opt.at<float>(1,1)=0.9;
+        }
+            break;
+        case 11:{
+            o_X_opt.at<float>(0,0)=1.1;
+            o_X_opt.at<float>(1,1)=1.1;
+        }
+            break;
+        case 12:{
+            o_X_opt.at<float>(0,0)=1.2;
+            o_X_opt.at<float>(1,1)=1.2;
+        }
+            break;
+        default:
+            break;
+        }
 	}
 
 	void Track(const Tracker::Inputs &i_inputs, const int i_t, cv::Mat &o_X_opt) {
@@ -1222,7 +1365,7 @@ public:
         double time_cur_sec=time_cur.tv_sec+time_cur.tv_usec/1000000.0;
         //clock_t time_cur = clock();
         //double time_cur_sec = double(time_cur) / CLOCKS_PER_SEC;
-		double fps = 1.0 / (time_cur_sec - time_prev_sec_);
+        fps = 1.0 / (time_cur_sec - time_prev_sec_);
         //time_prev_sec_ = time_cur_sec;
 		// draw X
 		cv::Mat poly;
@@ -1425,10 +1568,12 @@ public:
 		// add a title
 		char title[20];
         snprintf(title,20, "%.02f fps", fps);
-        cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,0,255),2);
+        cv::putText(I, title, cv::Point(100, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,0,255),2);
+        char title2[10];
+        snprintf(title2,10, "%d", i_t);
+        cv::putText(I, title2, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,0,255),2);
 		// show
 		cv::imshow("tracking...", I);
-        argFps+=fps;
         cv::waitKey(1);
 
         //计时
@@ -1528,23 +1673,26 @@ public:
 			}
             else{
                 Track(I, t, X_opt);
+                argFps+=fps;
             }
             Show(I_ORI, X_opt, t, fn_out);
             //cv::waitKey(0);
 			//std::cout<<"show finished"<<std::endl;
 		}
         //保存平均帧率
-        std::ofstream argFpsOut(params_.fpsOut_dir);
-        if(!argFpsOut){
-            std::cout<<"open Dog1_fps.txt failed"<<std::endl;
-        }
-        else{
-            argFps/=params_.end_frame;
-            argFpsOut<<argFps<<std::endl;
+        if(params_.init_group==1 && params_.stateFlag==0){
+            std::ofstream argFpsOut(params_.fpsOut_dir);
+            if(!argFpsOut){
+                std::cout<<"open Dog1_fps.txt failed"<<std::endl;
+            }
+            else{
+                argFps/=params_.end_frame;
+                argFpsOut<<argFps<<std::endl;
+            }
+            argFpsOut.close();
         }
         //关闭输出文件
         cornersOut.close();
-        argFpsOut.close();
 	}
 };
 
