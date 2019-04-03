@@ -31,6 +31,8 @@ public:
 		std::string file_fmt; //file format  文件名
         std::string connersOut_dir;//跟踪角点保存路径
         std::string fpsOut_dir;//平均帧率路径
+        std::string groundtruth_dir;//目标物真值路径
+        int init_group; //初始化组，用于TRE测试
 		int init_frame;
 		int start_frame;
 		int end_frame;
@@ -42,6 +44,8 @@ public:
 
         std::vector<float> template_xs;  //模板对应当前图像的4个角点x坐标
         std::vector<float> template_ys;	 //模板对应当前图像的4个角点y坐标
+        int width;//包围盒宽度
+        int hight;//包围盒高度
         std::vector<cv::Point2f> I_template_conners;//模板图像四个顶点
         std::vector<cv::Point2f> I_template_features;//模板图像中用于匹配的特征点
 		STATE_DOMAIN state_domain;		//状态变量
@@ -55,6 +59,7 @@ public:
 		PCAParams pca_params;
 
         std::string template_img_dir; //path of template image
+        int stateFlag;
 	};
 	struct State {
 		cv::Mat X;
@@ -604,244 +609,303 @@ private:
 	}
 
 	void load_params(const std::string &i_conf_fn) {
-		std::ifstream conf_file(i_conf_fn); //以输入方式打开文件
-		std::string line;
-		// proj name 输出文件夹
-		while (getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				params_.id = line;
-				//std::cout<<"length: "<<line.length()<<std::endl;
-				break;
-			}
-		}
+        std::ifstream conf_file(i_conf_fn); //以输入方式打开文件
+        std::string line;
+        // proj name 输出文件夹
+        while (getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.id = line;
+                //std::cout<<"length: "<<line.length()<<std::endl;
+                break;
+            }
+        }
 
-		// frame_dir
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				params_.frame_dir = line;
-				//std::cout<<line<<std::endl;
-				break;
-			}
-		}
-		// file_fmt
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				params_.file_fmt = line;
-				//std::cout<<line<<std::endl;
-				break;
-			}
-		}
+        // frame_dir
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.frame_dir = line;
+                //std::cout<<line<<std::endl;
+                break;
+            }
+        }
+        // file_fmt
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.file_fmt = line;
+                //std::cout<<line<<std::endl;
+                break;
+            }
+        }
+        // groundtruth_dir
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.groundtruth_dir = line;
+                //std::cout<<line<<std::endl;
+                break;
+            }
+        }
 
-		// init_frame
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);  //字符串到整形变量
-				iss >> params_.init_frame;
-				//std::cout<<params_.init_frame<<std::endl;
-				break;
-			}
-		}
-		// start_frame
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				iss >> params_.start_frame;
-				break;
-			}
-		}
-		// end_frame
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				iss >> params_.end_frame;
-				break;
-			}
-		}
-		// fps
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				iss >> params_.fps;
-				//std::cout<<params_.fps<<std::endl;
-				break;
-			}
-		}
-		// K
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				std::vector<float> K_vec(9);
-				for (int i = 0; i < 9; ++i)
-					iss >> K_vec[i];
-				cv::Mat K(3, 3, CV_32F);
-				int i_vec = 0;
-				for (int i = 0; i < 3; ++i)
-				for (int j = 0; j < 3; ++j){
-					K.at<float>(i, j) = K_vec[i_vec++];
-				//std::cout<<K_vec[i_vec-1]<<std::endl;	
-				}
-				params_.K = K;
-				break;
-			}
-		}
-		// n_particles
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				iss >> params_.n_particles;
-				//std::cout<<params_.n_particles<<std::endl;
-				break;
-			}
-		}
-		// state_domain
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				if (line.compare("Aff2") == 0)
-					params_.state_domain = STATE_DOMAIN::Aff2;
-				else if (line.compare("SL3") == 0)
-					params_.state_domain = STATE_DOMAIN::SL3;
-				else if (line.compare("SE3") == 0)
-					params_.state_domain = STATE_DOMAIN::SE3;
-				//else
-					//std::cout<<"state_domain error"<<std::endl;
-				break;
-			}
-		}
-		// read basis
-		int n_basis=0, n_dim=0;	//Ei的个数 Ei的维数
-		switch (params_.state_domain) {
-		case STATE_DOMAIN::Aff2:
-			n_basis = 6, n_dim = 3;
-			break;
-		case STATE_DOMAIN::SL3:
-			n_basis = 8, n_dim = 3;
-			break;
-		case STATE_DOMAIN::SE3:
-			n_basis = 6, n_dim = 4;
-			break;
-		}
-		for (int E_ind = 0; E_ind < n_basis; ++E_ind)
-		{
-			while (std::getline(conf_file, line)) {
-				if (line[0] == '#' || line.size() == 0) continue;
-				else {
-					std::istringstream iss(line);
-					std::vector<float> E_vec(n_dim * n_dim);
-					for (int i = 0; i < n_dim*n_dim; ++i)
-						iss >> E_vec[i];
-					cv::Mat E(n_dim, n_dim, CV_32F);
-					int i_vec = 0;
-					for (int i = 0; i < n_dim; ++i)
-					for (int j = 0; j < n_dim; ++j)
-						E.at<float>(i, j) = E_vec[i_vec++];
-					params_.E.push_back(E);
-					break;
-				}
-			}
-		}
-		// a
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				iss >> params_.a;
-           		//std::cout<<"a:"<<params_.a<<std::endl;
-				break;
-			}
-		}
-		// state_sigs
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				std::vector<float> sigs(n_basis);
-				for (int i = 0; i < n_basis; ++i)
-					iss >> sigs[i];
-				cv::Mat P_sigs(n_basis, 1, CV_32F);
-				for (int i = 0; i < n_basis; ++i)
-					P_sigs.at<float>(i) = sigs[i];
-				cv::Mat P_sigssq;
-				cv::pow(P_sigs, 2, P_sigssq);	//幂运算 平方
-				params_.P = cv::Mat::diag(P_sigssq);  //形成以P_sigssq为对角线的矩阵
-				params_.Q = params_.P / params_.fps;
-				break;
-			}
-		}
-		// obs_mdl_type
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				params_.obs_mdl_type = line;
-				break;
-			}
-		}
-		// R_SSD
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				float R_SSD;
-				iss >> R_SSD;
-				params_.ssd_params.R = cv::Mat(1, 1, CV_32F, R_SSD);
-				break;
-			}
-		}
-		// R_PCA
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				std::vector<float> R_PCA_vec(4);
-				for (int i = 0; i < 4; ++i)
-					iss >> R_PCA_vec[i];
-				cv::Mat R_PCA(2, 2, CV_32F);
-				int v_ind = 0;
-				for (int i = 0; i < 2; ++i)
-				for (int j = 0; j < 2; ++j)
-					R_PCA.at<float>(i, j) = R_PCA_vec[v_ind++];
-				params_.pca_params.R = R_PCA;
-				
-				break;
-			}
-		}
-		// n_basis
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				iss >> params_.pca_params.n_basis;
-				break;
-			}
-		}
-		// update_interval
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				iss >> params_.pca_params.update_interval;
-				break;
-			}
-		}
-		// forget_factor
-		while (std::getline(conf_file, line)) {
-			if (line[0] == '#' || line.size() == 0) continue;
-			else {
-				std::istringstream iss(line);
-				iss >> params_.pca_params.forget_factor;
-				//std::cout<<"forget_factor:"<<params_.pca_params.forget_factor<<std::endl;
-				break;
-			}
-		}
+        // init_group
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);  //字符串到整形变量
+                iss >> params_.init_group;
+                //std::cout<<params_.init_group<<std::endl;
+                break;
+            }
+        }
+        // init_frame start_frame template_xys
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                int n=0;
+                std::istringstream iss(line);
+                iss >> n;
+                params_.start_frame=(params_.init_group-1)*n+1;
+                params_.init_frame=params_.start_frame;
+                std::ifstream groundtruth(params_.groundtruth_dir);
+                for(int i=0;i<params_.init_frame;i++){
+                    std::getline(groundtruth, line);
+                }
+                int len=line.size();
+                int k=0;
+                std::vector<int> data;
+                for(int i=0;i<len;){
+                    if(line[i]<'0' || line[i]>'9'){
+                        i++;
+                    }
+                    else{
+                        while(line[i]>='0' && line[i]<='9'&& i<len){
+                            k=k*10+(line[i]-'0');
+                            i++;
+                        }
+                        data.push_back(k);
+                        k=0;
+                    }
+                }
+
+
+                //字符串转数组
+//                line+=",";
+//                int len=line.size();
+//                //std::cout<<len<<std::endl;
+//                std::vector<int> data;
+//                for(int i=0;i<len;i++){
+//                    //std::cout<<line.find(",",i)<<std::endl;
+//                    int pos=line.find(",",i);
+//                    if(pos<len){
+//                        int k=atoi(line.substr(i,pos-i).c_str());
+//                        data.push_back(k);
+//                        i=pos;
+//                    }
+//                }
+                params_.template_xs.push_back(data[0]);
+                params_.template_xs.push_back(data[0]);
+                params_.template_xs.push_back(data[0]+data[2]);
+                params_.template_xs.push_back(data[0]+data[2]);
+                params_.template_ys.push_back(data[1]);
+                params_.template_ys.push_back(data[1]+data[3]);
+                params_.template_ys.push_back(data[1]+data[3]);
+                params_.template_ys.push_back(data[1]);
+                params_.width=data[2];
+                params_.hight=data[3];
+
+                break;
+            }
+        }
+        // end_frame
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                iss >> params_.end_frame;
+                break;
+            }
+        }
+        // fps
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                iss >> params_.fps;
+                //std::cout<<params_.fps<<std::endl;
+                break;
+            }
+        }
+        // K
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                std::vector<float> K_vec(9);
+                for (int i = 0; i < 9; ++i)
+                    iss >> K_vec[i];
+                cv::Mat K(3, 3, CV_32F);
+                int i_vec = 0;
+                for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j){
+                    K.at<float>(i, j) = K_vec[i_vec++];
+                //std::cout<<K_vec[i_vec-1]<<std::endl;
+                }
+                params_.K = K;
+                break;
+            }
+        }
+        // n_particles
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                iss >> params_.n_particles;
+                //std::cout<<params_.n_particles<<std::endl;
+                break;
+            }
+        }
+        // state_domain
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                if (line.compare("Aff2") == 0)
+                    params_.state_domain = STATE_DOMAIN::Aff2;
+                else if (line.compare("SL3") == 0)
+                    params_.state_domain = STATE_DOMAIN::SL3;
+                else if (line.compare("SE3") == 0)
+                    params_.state_domain = STATE_DOMAIN::SE3;
+                //else
+                    //std::cout<<"state_domain error"<<std::endl;
+                break;
+            }
+        }
+        // read basis
+        int n_basis=0, n_dim=0;	//Ei的个数 Ei的维数
+        switch (params_.state_domain) {
+        case STATE_DOMAIN::Aff2:
+            n_basis = 6, n_dim = 3;
+            break;
+        case STATE_DOMAIN::SL3:
+            n_basis = 8, n_dim = 3;
+            break;
+        case STATE_DOMAIN::SE3:
+            n_basis = 6, n_dim = 4;
+            break;
+        }
+        for (int E_ind = 0; E_ind < n_basis; ++E_ind)
+        {
+            while (std::getline(conf_file, line)) {
+                if (line[0] == '#' || line.size() == 0) continue;
+                else {
+                    std::istringstream iss(line);
+                    std::vector<float> E_vec(n_dim * n_dim);
+                    for (int i = 0; i < n_dim*n_dim; ++i)
+                        iss >> E_vec[i];
+                    cv::Mat E(n_dim, n_dim, CV_32F);
+                    int i_vec = 0;
+                    for (int i = 0; i < n_dim; ++i)
+                    for (int j = 0; j < n_dim; ++j)
+                        E.at<float>(i, j) = E_vec[i_vec++];
+                    params_.E.push_back(E);
+                    break;
+                }
+            }
+        }
+        // a
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                iss >> params_.a;
+                //std::cout<<"a:"<<params_.a<<std::endl;
+                break;
+            }
+        }
+        // state_sigs
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                std::vector<float> sigs(n_basis);
+                for (int i = 0; i < n_basis; ++i)
+                    iss >> sigs[i];
+                cv::Mat P_sigs(n_basis, 1, CV_32F);
+                for (int i = 0; i < n_basis; ++i)
+                    P_sigs.at<float>(i) = sigs[i];
+                cv::Mat P_sigssq;
+                cv::pow(P_sigs, 2, P_sigssq);	//幂运算 平方
+                params_.P = cv::Mat::diag(P_sigssq);  //形成以P_sigssq为对角线的矩阵
+                params_.Q = params_.P / params_.fps;
+                break;
+            }
+        }
+        // obs_mdl_type
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.obs_mdl_type = line;
+                break;
+            }
+        }
+        // R_SSD
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                float R_SSD;
+                iss >> R_SSD;
+                params_.ssd_params.R = cv::Mat(1, 1, CV_32F, R_SSD);
+                break;
+            }
+        }
+        // R_PCA
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                std::vector<float> R_PCA_vec(4);
+                for (int i = 0; i < 4; ++i)
+                    iss >> R_PCA_vec[i];
+                cv::Mat R_PCA(2, 2, CV_32F);
+                int v_ind = 0;
+                for (int i = 0; i < 2; ++i)
+                for (int j = 0; j < 2; ++j)
+                    R_PCA.at<float>(i, j) = R_PCA_vec[v_ind++];
+                params_.pca_params.R = R_PCA;
+
+                break;
+            }
+        }
+        // n_basis
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                iss >> params_.pca_params.n_basis;
+                break;
+            }
+        }
+        // update_interval
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                iss >> params_.pca_params.update_interval;
+                break;
+            }
+        }
+        // forget_factor
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                iss >> params_.pca_params.forget_factor;
+                //std::cout<<"forget_factor:"<<params_.pca_params.forget_factor<<std::endl;
+                break;
+            }
+        }
         //path of template image
 //        while (getline(conf_file, line)) {
 //            if (line[0] == '#' || line.size() == 0) continue;
@@ -850,36 +914,54 @@ private:
 //                break;
 //            }
 //        }
-        while(std::getline(conf_file, line)) {
-           if(line[0] == '#' || line.size() == 0) continue;
-           else {
-               // xs
-               {
-                   std::istringstream iss(line);
-                   std::vector<float> template_xs;
-                   float tmp;
-                   while( iss >> tmp )
-                       template_xs.push_back(tmp);
-                   params_.template_xs = template_xs;
-               }
-               // ys
-               {
-                   std::getline(conf_file, line);
-                   std::istringstream iss(line);
-                   std::vector<float> template_ys;
-                   float tmp;
-                   while( iss >> tmp )
-                       template_ys.push_back(tmp);
-                   params_.template_ys = template_ys;
-               }
-               break;
-           }
-       }
+        //stateFlag
+        //TRE up down left right upleft upright downright downleft 0.8 0.9 1.1 1.2
+        // 0  1   2    3     4     5       6        7        8      9  10  11   12
+        while (std::getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                std::istringstream iss(line);
+                iss >> params_.stateFlag;
+                break;
+            }
+        }
+
+        //template_xys
+//        while(std::getline(conf_file, line)) {
+//           if(line[0] == '#' || line.size() == 0) continue;
+//           else {
+//               std::istringstream iss(line);
+//               int x,y,w,h;
+//               iss>>x;
+//               iss>>y;
+//               iss>>w;
+//               iss>>h;
+//               params_.template_xs.push_back(x);
+//               params_.template_xs.push_back(x);
+//               params_.template_xs.push_back(x+w);
+//               params_.template_xs.push_back(x+w);
+//               params_.template_ys.push_back(y);
+//               params_.template_ys.push_back(y+h);
+//               params_.template_ys.push_back(y+h);
+//               params_.template_ys.push_back(y);
+//               break;
+//           }
+
+//       }
+
         // connersOut_dir
         while (std::getline(conf_file, line)) {
             if (line[0] == '#' || line.size() == 0) continue;
             else {
-                params_.connersOut_dir = line;
+                std::string s=line;
+                char buffer[1024];
+                if(params_.stateFlag==0){
+                    snprintf(buffer, 1024, line.c_str(), params_.init_group); //文件名补全
+                }
+                else{
+                    snprintf(buffer, 1024, line.c_str(), params_.stateFlag); //文件名补全
+                }
+                params_.connersOut_dir=std::string(buffer);
                 //std::cout<<line<<std::endl;
                 break;
             }
@@ -1164,6 +1246,69 @@ public:
 		learn_obs_mdl(i_I, state_.X);
 		// return
 		o_X_opt = state_.X;
+        std::cout<<o_X_opt<<std::endl;
+        //SRE测试
+        switch (params_.stateFlag) {
+        case 1:{//up
+            o_X_opt.at<float>(1,2)-=0.1*params_.hight;
+        }
+            break;
+        case 2:{//down
+            o_X_opt.at<float>(1,2)+=0.1*params_.hight;
+        }
+            break;
+        case 3:{//left
+            o_X_opt.at<float>(0,2)-=0.1*params_.width;
+        }
+            break;
+        case 4:{//right
+            o_X_opt.at<float>(0,2)+=0.1*params_.width;
+        }
+            break;
+        case 5:{//upleft
+            o_X_opt.at<float>(1,2)-=0.1*params_.hight;
+            o_X_opt.at<float>(0,2)-=0.1*params_.width;
+        }
+            break;
+        case 6:{//upright
+            o_X_opt.at<float>(1,2)-=0.1*params_.hight;
+            o_X_opt.at<float>(0,2)+=0.1*params_.width;
+        }
+            break;
+        case 7:{//downright
+            o_X_opt.at<float>(1,2)+=0.1*params_.hight;
+            o_X_opt.at<float>(0,2)+=0.1*params_.width;
+        }
+            break;
+        case 8:{//downleft
+            o_X_opt.at<float>(1,2)+=0.1*params_.hight;
+            o_X_opt.at<float>(0,2)-=0.1*params_.width;
+        }
+            break;
+        case 9:{//0.8
+            o_X_opt.at<float>(0,0)=0.8;
+            o_X_opt.at<float>(1,1)=0.8;
+        }
+            break;
+        case 10:{
+            o_X_opt.at<float>(0,0)=0.9;
+            o_X_opt.at<float>(1,1)=0.9;
+        }
+            break;
+        case 11:{
+            o_X_opt.at<float>(0,0)=1.1;
+            o_X_opt.at<float>(1,1)=1.1;
+        }
+            break;
+        case 12:{
+            o_X_opt.at<float>(0,0)=1.2;
+            o_X_opt.at<float>(1,1)=1.2;
+        }
+            break;
+        default:
+            break;
+        }
+        std::cout<<o_X_opt<<std::endl;
 	}
 
 	void Track(const Tracker::Inputs &i_inputs, const int i_t, cv::Mat &o_X_opt) {
@@ -1516,17 +1661,19 @@ public:
             //std::cout<<"show finished"<<std::endl;
         }
         //保存平均帧率
-        std::ofstream argFpsOut(params_.fpsOut_dir);
-        if(!argFpsOut){
-            std::cout<<"open Dog1_fps.txt failed"<<std::endl;
-        }
-        else{
-            argFps/=params_.end_frame;
-            argFpsOut<<argFps<<std::endl;
+        if(params_.init_group==1 && params_.stateFlag==0){
+            std::ofstream argFpsOut(params_.fpsOut_dir);
+            if(!argFpsOut){
+                std::cout<<"open fps.txt failed"<<std::endl;
+            }
+            else{
+                argFps/=params_.end_frame;
+                argFpsOut<<argFps<<std::endl;
+            }
+            argFpsOut.close();
         }
         //关闭输出文件
         cornersOut.close();
-        argFpsOut.close();
     }
 };
 
