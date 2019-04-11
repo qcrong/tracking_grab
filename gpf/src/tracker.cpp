@@ -863,17 +863,18 @@ public:
 //        camera_fx = 1068.8010;
 //        camera_fy = 1067.9639;
         //qhd
-        camera_factor = 1000;
-        camera_cx = 482.45643;
-        camera_cy = 275.98007;
-        camera_fx = 533.30794;
-        camera_fy = 533.26216;
-        //305 qhd
 //        camera_factor = 1000;
-//        camera_cx = 484.24373;
-//        camera_cy = 268.88841;
-//        camera_fx = 534.40049;
-//        camera_fy = 533.98196;
+//        camera_cx = 482.45643;
+//        camera_cy = 275.98007;
+//        camera_fx = 533.30794;
+//        camera_fy = 533.26216;
+
+        //305 qhd
+        camera_factor = 1000;
+        camera_cx = 484.24373;
+        camera_cy = 268.88841;
+        camera_fx = 534.40049;
+        camera_fy = 533.98196;
 	}
 	Tracker(const Tracker::Params &i_params) {
 		params_ = i_params;
@@ -885,17 +886,17 @@ public:
 //        camera_fy = 1067.9639;
 
         //qhd
-        camera_factor = 1000;
-        camera_cx = 482.45643;
-        camera_cy = 275.98007;
-        camera_fx = 533.30794;
-        camera_fy = 533.26216;
-        //305qhd
 //        camera_factor = 1000;
-//        camera_cx = 484.24373;
-//        camera_cy = 268.88841;
-//        camera_fx = 534.40049;
-//        camera_fy = 533.98196;
+//        camera_cx = 482.45643;
+//        camera_cy = 275.98007;
+//        camera_fx = 533.30794;
+//        camera_fy = 533.26216;
+        //305qhd
+        camera_factor = 1000;
+        camera_cx = 484.24373;
+        camera_cy = 268.88841;
+        camera_fx = 534.40049;
+        camera_fy = 533.98196;
 	}
 
 	void read_inputs(int i_t, Tracker::Inputs &i_inputs, cv::Mat &I_ori) {
