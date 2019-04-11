@@ -25,9 +25,11 @@ Eigen::Vector3d hand2tool0_t;//跟踪时手抓偏移
 Eigen::Vector3d obj2hand_t;//抓取时手抓偏移
 
 //pbvs速度系数
-float kp_track=3;
+float kp_track=3.6;
 float kp_grab=3.6;
 Eigen::Vector3d vT;
+int times=0;
+double deltaTime=0.0;
 //float ti=0.0;
 //float td=0.0;
 //计时
@@ -47,7 +49,7 @@ void variable_init(void)
     base2eye_t<<0.03969047837898311, -1.204680720943689,0.3279361299516342;
     base2eye_q=base2eye_r;
     hand2tool0_t<<0,0,-0.25;
-    obj2hand_t<<0,0,-0.125;
+    obj2hand_t<<0,0,-0.135;
 }
 
 //发布末端速度
@@ -88,20 +90,27 @@ void pbvsGetVel(const gpf::obj_tool_transform &transform_,double& err_xyz_2,doub
 
     bTtd=base2eye_r*eye_center3d+base2eye_t;//目标转换到基座标系下
     /*****偏差预测*****/
-    double deltaTime=(ros::Time::now()-transform_.data).toSec();
-    std::cout<<"deltaTime: "<<deltaTime<<std::endl;
+    //deltaTime=(ros::Time::now()-transform_.data).toSec();
+    //std::cout<<"deltaTime: "<<deltaTime<<std::endl;
     static Eigen::Vector3d bTtdOld=bTtd;
-    Eigen::Vector3d bTtd_pred=bTtd+(bTtd-bTtdOld);//下一周期位置预测
+    static double timeOld=transform_.data.toSec();
+    Eigen::Vector3d bTtd_pred=bTtd;//+(bTtd-bTtdOld);//下一周期位置预测
 
 
     Eigen::Quaterniond bRtd_q(transform_.cam2obj.rotation.w, transform_.cam2obj.rotation.x, transform_.cam2obj.rotation.y, transform_.cam2obj.rotation.z);//eye2obj
     bRtd_q=base2eye_q*bRtd_q;//基座标系下目标的姿态
     Eigen::Vector3d bTtd_track;
     if(trackFlag){
-        vT=(bTtd-bTtdOld)/deltaTime;
-        std::cout<<"vT: "<<vT<<std::endl;   //速度
-        bTtdOld=bTtd;
         bTtd_track=bRtd_q*hand2tool0_t+bTtd_pred;//考虑手抓偏移
+        times++;
+        if(times==10){
+            times=1;
+            deltaTime=ros::Time::now().toSec()-timeOld;
+            vT=(bTtd-bTtdOld)/deltaTime;
+            std::cout<<"vT: "<<vT<<std::endl;   //速度
+            bTtdOld=bTtd;
+            timeOld=transform_.data.toSec();
+        }
     }
     else
     {
@@ -139,7 +148,7 @@ void pbvsGetVel(const gpf::obj_tool_transform &transform_,double& err_xyz_2,doub
         }
     cv::Mat tdRt_tu_m;
     cv::Rodrigues(tdRt_mat,tdRt_tu_m);
-    std::cout<<"tdRt_tu_m"<<tdRt_tu_m<<std::endl;
+    //std::cout<<"tdRt_tu_m"<<tdRt_tu_m<<std::endl;
 
     //opencv
     Eigen::Vector3d tdRt_tu_opencv(0,0,0);

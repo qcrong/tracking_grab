@@ -78,13 +78,15 @@ void rosimage2opencv(const sensor_msgs::ImageConstPtr& msg)
 	}
 	//cvtColor(cv_ptr->image,I_ORI,CV_BGR2GRAY);
 	I_ORI=cv_ptr->image;
+    cv::imshow("I_ORI",I_ORI);
+    cv::waitKey(0);
 }
 
 void RecognitionCallback(const sensor_msgs::ImageConstPtr image_rgb, const sensor_msgs::ImageConstPtr image_depth){
   	//转换ROS图像消息到opencv图像
 	try
 	{
-		cv_ptr=cv_bridge::toCvCopy(image_rgb,sensor_msgs::image_encodings::MONO8);
+        cv_ptr=cv_bridge::toCvCopy(image_rgb,sensor_msgs::image_encodings::BGR8);
    		I_ORI_DEPTH = cv_bridge::toCvShare(image_depth)->image;
 	}
 	catch(cv_bridge::Exception &e)
@@ -95,6 +97,8 @@ void RecognitionCallback(const sensor_msgs::ImageConstPtr image_rgb, const senso
     I_ORI=cv_ptr->image;
     get_new_I=true;
     timeofImg=ros::Time::now();
+    //cv::imshow("I_ORI",I_ORI);
+    //cv::waitKey(0);
   	//I_ORI = cv_bridge::toCvShare(image_rgb,"mono8")->image;
   	//I_ORI_DEPTH = cv_bridge::toCvShare(image_depth)->image;
 }
