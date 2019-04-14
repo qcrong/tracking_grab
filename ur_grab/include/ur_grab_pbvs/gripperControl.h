@@ -29,7 +29,7 @@ void initializeGripperMsg(ros::Publisher &gripperPub_)// Function for gripper co
 
 }
 
-void sendGripperMsg(ros::Publisher &gripperPub_,int position, int speed=500, int force=250,double sleep_time=1.0)// Function for gripper controller
+void sendGripperMsg(ros::Publisher &gripperPub_,int position, int speed=1000, int force=250,double sleep_time=0.01)// Function for gripper controller
 {
     robotiq_2f_gripper_control::Robotiq2FGripper_robot_output closeGripperMsg;
     closeGripperMsg.rACT = 1;

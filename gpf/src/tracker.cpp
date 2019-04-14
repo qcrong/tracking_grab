@@ -1337,7 +1337,7 @@ public:
             //std::cout << "-R:" << std::endl << r << std::endl;
             //std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
 
-            {//if(i_t>=3)
+            if(i_t>=20){
                 cv::Mat r_t=r.t();
                 //计时
                 /*timeval time_pub;
@@ -1355,9 +1355,9 @@ public:
                 //exit(-1);
             }
 
-			char position[40];
-			snprintf(position, 40, "[%.03f,%.03f,%.03f]", small_P3f[0].at<float>(0,0), small_P3f[0].at<float>(0,1), small_P3f[0].at<float>(0,2));
-            cv::putText(I, position, cv::Point(p.x+50, p.y+50), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255),2);
+            //char position[40];
+            //snprintf(position, 40, "[%.03f,%.03f,%.03f]", small_P3f[0].at<float>(0,0), small_P3f[0].at<float>(0,1), small_P3f[0].at<float>(0,2));
+            //cv::putText(I, position, cv::Point(p.x+50, p.y+50), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255),2);
 		}
         //绘制方向向量
         circle(I, small_P2d[0], 2, cv::Scalar(255),-1);
@@ -1379,9 +1379,11 @@ public:
         //double time_imshow_sec = double(time_imshow) / CLOCKS_PER_SEC;
         std::cout<<"time imshow: "<<time_imshow_sec-time_prev_sec_<<std::endl;*/
         time_prev_sec_ = time_cur_sec;
+        if(i_t%10==0){
+            // write results
+            cv::imwrite(i_fn_out, I);
+        }
 
-		// write results
-        //cv::imwrite(i_fn_out, I);
 	}
 
 	void myShow(const cv::Mat &i_I, const std::vector<Tracker::Particle> i_particles, const int i_t, bool track) {
