@@ -1366,7 +1366,7 @@ public:
 		// add a title
 		char title[20];
 		snprintf(title,20, "%.02f fps", fps);
-		cv::putText(I, title, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255),2);
+        cv::putText(I, title, cv::Point(15, 40), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(255),2);
 		// show
 		cv::imshow("tracking...", I);
 		cv::waitKey(1);

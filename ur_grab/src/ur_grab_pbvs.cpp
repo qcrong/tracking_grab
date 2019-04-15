@@ -31,8 +31,8 @@ Eigen::Vector3d tool02hand_t;
 Eigen::Vector3d obj2hand_t;//抓取时手抓偏移
 
 //pbvs速度系数
-float kp_track=3.0;
-float kp_grab=1.5;
+float kp_track=2.0;
+float kp_grab=2.0;
 int times=0;
 double deltaTime=0.0;
 //float ti=0.0;
@@ -64,11 +64,11 @@ float errVal=0.05;//抓取动作阈值
 //读取当前关节位置信息
 void variable_init(void)
 {
-    base2eye_r<<0.9991987969968049, 0.01166580553949524, -0.03828410977483826,
-    0.03837739908251811, -0.5506842145529742, 0.833830960735948,
-    -0.01135514508046016, -0.8346321374253974, -0.5506907079812708;
+    base2eye_r<<0.9994936881957421, 0.01343703571952885, -0.0288411741776427,
+    0.03140546115551829, -0.5620746702173953, 0.8264900254144727,
+    -0.005105317471252785, -0.8269773341338194, -0.5622120814803249;
 
-    base2eye_t<<0.03046466580335716, -1.329345536341161, 0.3244909190467186;
+    base2eye_t<<-0.04893104295459041, -1.112424565617926, 0.3372325904612675;
     base2eye_q=base2eye_r;
     hand2tool0_t<<0,0,-0.25;
     tool02hand_t<<0,0,0.25;
@@ -130,7 +130,7 @@ void pbvsGetVel(const gpf::obj_tool_transform &transform_,double& err_xyz_2,doub
     }
     else
     {
-        bTtd_pred+=targetVelt*1.5;
+        bTtd_pred+=targetVelt;//*1.5;
         bTtd_track=bRtd_q*obj2hand_t+bTtd_pred;//考虑手抓偏移
     }
 
@@ -188,10 +188,10 @@ void pbvsGetVel(const gpf::obj_tool_transform &transform_,double& err_xyz_2,doub
 
     if(trackFlag){
         times++;
-        if(times==5){
+        if(times==10){
             deltaTime=transform_.data.toSec()-timeOld;
             targetVelt=(bTtd-bTtdOld)/deltaTime;
-            std::cout<<"targetVelt: "<<targetVelt<<std::endl;   //线速度
+            //std::cout<<"targetVelt: "<<targetVelt<<std::endl;   //线速度
             targetVelr=(bRtd_tu_opencv-bRtd_tu_opencvOld)/deltaTime;
             bTtdOld=bTtd;
             bRtd_tu_opencvOld=bRtd_tu_opencv;
@@ -199,13 +199,13 @@ void pbvsGetVel(const gpf::obj_tool_transform &transform_,double& err_xyz_2,doub
         }
     }
     //位置控制，保证Z轴高度，不打物品放置平面
-    if(bTt(2)<0)
-    {
-        cmd_tool_stoop_pub();
-        std::cout<<"exit bTt Z: "<<bTt(2)<<std::endl;
-        ros::Duration(0.1).sleep();
-        exit(0);
-    }
+//    if(bTt(2)<0)
+//    {
+//        cmd_tool_stoop_pub();
+//        std::cout<<"exit bTt Z: "<<bTt(2)<<std::endl;
+//        ros::Duration(0.1).sleep();
+//        exit(0);
+//    }
 
     /*****误差计算*****/
     err_xyz_2=tdTt(0)*tdTt(0)+tdTt(1)*tdTt(1)+tdTt(2)*tdTt(2);
@@ -286,7 +286,7 @@ void pbvsGetVel(const gpf::obj_tool_transform &transform_,double& err_xyz_2,doub
         errxyzqOut<<time<<" "<<tdTt(0)<<" "<<tdTt(1)<<" "<<tdTt(2)<<" ";
         errxyzqOut<<tdRt_tu_opencv(0)<<" "<<tdRt_tu_opencv(1)<<" "<<tdRt_tu_opencv(2)<<std::endl;
         //目标物速度
-        if(times==5){
+        if(times==10){
             times=1;
             targetVelOut<<time<<" "<<targetVelt(0)<<" "<<targetVelt(1)<<" "<<targetVelt(2)<<" ";
             targetVelOut<<targetVelr(0)<<" "<<targetVelr(1)<<" "<<targetVelr(2)<<std::endl;
@@ -314,7 +314,7 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
         ros::Duration(0.05).sleep();
         int grapFlag=0;
         while(err>0.015 && ros::ok()){
-            if(grapFlag==0 && err_xyz_2<0.02){
+            if(grapFlag==0 && err<0.03){
                 sendGripperMsg(gripperPub,65);
                 grapFlag=1;
             }
@@ -327,7 +327,7 @@ void robot_target_subCB(const gpf::obj_tool_transform &transform_)
         std::cout<<"success"<<std::endl;
 
 
-        //ros::Duration(0.1).sleep();
+        ros::Duration(0.3).sleep();
         geometry_msgs::Twist toolVel;
         toolVel.linear.x=0;
         toolVel.linear.y=0;
