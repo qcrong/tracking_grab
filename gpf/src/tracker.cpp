@@ -907,13 +907,13 @@ private:
             }
         }
         //path of template image
-//        while (getline(conf_file, line)) {
-//            if (line[0] == '#' || line.size() == 0) continue;
-//            else {
-//                params_.template_img_dir= line;
-//                break;
-//            }
-//        }
+        while (getline(conf_file, line)) {
+            if (line[0] == '#' || line.size() == 0) continue;
+            else {
+                params_.template_img_dir= line;
+                break;
+            }
+        }
         //stateFlag
         //TRE up down left right upleft upright downright downleft 0.8 0.9 1.1 1.2
         // 0  1   2    3     4     5       6        7        8      9  10  11   12
@@ -988,6 +988,9 @@ public:
             exit(-1);
         }
         argFps=0.0;
+        if (load_template_params(params_.template_img_dir,params_.I_template_conners,params_.I_template_features)==false){
+                    exit(-1);
+                }
 		//std::cout<<"load successed"<<std::endl;
 //        if (load_template_params(params_.template_img_dir,params_.I_template_conners,params_.I_template_features)==false){
 //            exit(-1);
@@ -1174,11 +1177,14 @@ public:
 				template_pnts_ = template_pnts.t();
 			}
 			else {
-				// 2d points
-                load_template_params_2D(I_ORI,params_.template_xs,params_.template_ys,params_.I_template_features);
 
-                //cv::Mat init_frame_features;//模板图像中用于匹配的特征点映射到当前图像
-                //cv::perspectiveTransform(cv::Mat(params_.I_template_features), init_frame_features, Htc);
+
+
+				// 2d points
+                //load_template_params_2D(I_ORI,params_.template_xs,params_.template_ys,params_.I_template_features);
+
+                cv::Mat init_frame_features;//模板图像中用于匹配的特征点映射到当前图像
+                cv::perspectiveTransform(cv::Mat(params_.I_template_features), init_frame_features, Htc);
 
 
                 int n_features=params_.I_template_features.size();
@@ -1189,12 +1195,19 @@ public:
 
                 cv::Mat I_ORI_init=I_ORI.clone();
                 for(int i=0;i<n_features;i++){
-                    r_ind.at<float>(0,i)=params_.I_template_features[i].y-y_mean[0];
-                    c_ind.at<float>(0,i)=params_.I_template_features[i].x-x_mean[0];
-                    //cv::circle(I_ORI_init,cv::Point(params_.I_template_features[i].x,params_.I_template_features[i].y),1,cv::Scalar(255));
-                    I_ORI_init.at<unsigned char>(params_.I_template_features[i].y,params_.I_template_features[i].x)=255;
-                    //std::cout<<params_.I_template_features[i].x<<", "<<params_.I_template_features[i].y<<std::endl;
+                    r_ind.at<float>(0,i)=init_frame_features.at<float>(i,1)-y_mean[0];
+                    c_ind.at<float>(0,i)=init_frame_features.at<float>(i,0)-x_mean[0];
+                    cv::circle(I_ORI_init,cv::Point(init_frame_features.at<float>(i,0),init_frame_features.at<float>(i,1)),1,cv::Scalar(255));
+                    //I_ORI_init.at<unsigned char>(init_frame_features.at<float>(i,1),init_frame_features.at<float>(i,0))=255;
                 }
+
+//                for(int i=0;i<n_features;i++){
+//                    r_ind.at<float>(0,i)=params_.I_template_features[i].y-y_mean[0];
+//                    c_ind.at<float>(0,i)=params_.I_template_features[i].x-x_mean[0];
+//                    //cv::circle(I_ORI_init,cv::Point(params_.I_template_features[i].x,params_.I_template_features[i].y),1,cv::Scalar(255));
+//                    I_ORI_init.at<unsigned char>(params_.I_template_features[i].y,params_.I_template_features[i].x)=255;
+//                    //std::cout<<params_.I_template_features[i].x<<", "<<params_.I_template_features[i].y<<std::endl;
+//                }
                 cv::circle(I_ORI_init,cv::Point(x_mean[0],y_mean[0]),3,cv::Scalar(0),2);
                 cv::imshow("I_ORI_init",I_ORI_init);
                 //cv::waitKey(0);
@@ -1630,15 +1643,15 @@ public:
 
 			cv::Mat X_opt;
             if (t == params_.init_frame){
-//                if(!autoget_template_poly_pnts(params_.I_template_conners,params_.template_xs, params_.template_ys, far_point, near_point,1)){
-//                    std::cout<<"get_template_poly_pnts ellor"<<std::endl;
-//                    t=0;
-//                    continue;
-//                }
-//                if(get_template_poly_pnts(params_.template_xs, params_.template_ys, far_point, near_point)==false){
-//					std::cout<<"get_template_poly_pnts ellor"<<std::endl;
-//					return;
-//				}
+                if(!autoget_template_poly_pnts(params_.I_template_conners,params_.template_xs, params_.template_ys, far_point, near_point,1)){
+                    std::cout<<"get_template_poly_pnts ellor"<<std::endl;
+                    t=0;
+                    continue;
+                }
+                if(get_template_poly_pnts(params_.template_xs, params_.template_ys, far_point, near_point)==false){
+                    std::cout<<"get_template_poly_pnts ellor"<<std::endl;
+                    return;
+                }
 				/*
 				std::cout<<"params_.template_xs: ";
 				for(int i=0;i<params_.template_xs.size();i++){

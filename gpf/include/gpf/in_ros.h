@@ -279,6 +279,7 @@ bool load_template_params(const std::string &template_img_dir_,std::vector<cv::P
     /*模板提取边缘，并进行膨胀，获得的特征区域*/
     cv::Mat edge,gray;
     cv::cvtColor(I_template,gray,cv::COLOR_BGR2GRAY);//模板图像转换为灰度图
+    //gray=I_template.clone();
     cv::blur(gray,edge,cv::Size(3,3));//降噪
     cv::Canny(edge,edge,20,60,3);
     cv::imshow("edge canny",edge);
@@ -355,11 +356,12 @@ bool load_template_params_2D(const cv::Mat &i_ori_,const std::vector<float> &tem
 
 //自动获取目标四个顶点
 bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conners_,std::vector<float> &template_xs, std::vector<float> &template_ys, int &far_point_, int &near_point_, bool showimage=0){
-    while(get_new_RGBI==false && ros::ok()){
-        ros::spinOnce();
-    }
-    get_new_RGBI=false;
+//    while(get_new_RGBI==false && ros::ok()){
+//        ros::spinOnce();
+//    }
+//    get_new_RGBI=false;
     //提取特征点
+    I_ORI_RGB=cv::imread("/home/qcrong/Documents/thesis/test/Rubik/img/0001.jpg");
     std::vector<cv::KeyPoint> curimg_keypoints;
     feature->detect(I_ORI_RGB,curimg_keypoints);
     //提取特征向量
@@ -385,9 +387,10 @@ bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conne
         cv::KeyPoint::convert(template_keypoints, points_t, queryIdxs);
         std::vector<cv::Point2f> points_c;
         cv::KeyPoint::convert(curimg_keypoints, points_c, trainIdxs);
-        int ransacReprojThreshold = 2;  //拒绝阈值
+        double ransacReprojThreshold = 2;  //拒绝阈值
 
         Htc = cv::findHomography( cv::Mat(points_t), cv::Mat(points_c), CV_RANSAC, ransacReprojThreshold );
+        std::cout<<"Htc: "<<Htc<<std::endl;
         std::vector<char> matchesMask( matches.size(), 0 );
         cv::Mat points_t_t;
         cv::perspectiveTransform(cv::Mat(points_t), points_t_t, Htc);
@@ -400,9 +403,9 @@ bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conne
                 n_good_matchs++;
             }
         }
-        if(n_good_matchs>=12){
+        if(n_good_matchs>=4){
             std::cout<<"numbers of good matchs: "<<n_good_matchs<<std::endl;
-            colorimg_sub.shutdown();//取消彩图订阅
+            //colorimg_sub.shutdown();//取消彩图订阅
             /*映射获得当前图像中目标物的四个顶点*/
             cv::Mat cur_conners;
             cv::perspectiveTransform(cv::Mat(I_template_conners_), cur_conners, Htc);
@@ -438,12 +441,30 @@ bool autoget_template_poly_pnts(const std::vector<cv::Point2f> &I_template_conne
             }
             /*显示特征匹配结果*/
             if(showimage){
+                cv::Mat I_templateGray,I_ORI_RGB_Gray;
+                cv::cvtColor(I_template,I_templateGray,cv::COLOR_BGR2GRAY);//模板图像转换为灰度图
+                cv::cvtColor(I_ORI_RGB,I_ORI_RGB_Gray,cv::COLOR_BGR2GRAY);
+                cv::imshow("I_templateGray", I_templateGray);
                 cv::Mat image_before_ransac;
-                cv::drawMatches(I_template, template_keypoints, I_ORI_RGB, curimg_keypoints, matches, image_before_ransac);
+                cv::drawMatches(I_templateGray, template_keypoints, I_ORI_RGB_Gray, curimg_keypoints, matches, image_before_ransac);
                 cv::imshow("before RANSAC", image_before_ransac);
 
+
+                std::vector<cv::Point> pnts;
+                for (int i = 0; i < I_template_conners_.size(); ++i) {
+                    cv::Point p((int)std::round(cur_conners.at<float>(i, 0)),(int)std::round(cur_conners.at<float>(i, 1)));
+                    pnts.push_back(p);
+                    std::cout<<pnts[i]<<std::endl;
+                }
+                const cv::Point *pts[1] = { pnts.data() };
+                const int npts[1] = { (int)pnts.size() };
+                cv::Mat I_ORI_Gray_RGB;
+                cv::cvtColor(I_ORI_RGB_Gray,I_ORI_Gray_RGB,cv::COLOR_GRAY2BGR);
+                polylines(I_ORI_Gray_RGB, pts, npts, 1, true, cv::Scalar(0, 0, 255), 2); //绘制包围多边形
+                cv::imshow("I_ORI_Gray_RGB",I_ORI_Gray_RGB);
+
                 cv::Mat image_after_ransac;
-                cv::drawMatches(I_template,template_keypoints,I_ORI_RGB,curimg_keypoints,matches,image_after_ransac,cv::Scalar::all(-1),cv::Scalar::all(-1),matchesMask);
+                cv::drawMatches(I_templateGray,template_keypoints,I_ORI_Gray_RGB,curimg_keypoints,matches,image_after_ransac,cv::Scalar::all(-1),cv::Scalar::all(-1),matchesMask);
                 cv::imshow("after RANSAC", image_after_ransac);
                 //cv::waitKey(0);
                 //cv::destroyAllWindows();
