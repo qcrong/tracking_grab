@@ -1337,7 +1337,7 @@ public:
             //std::cout << "-R:" << std::endl << r << std::endl;
             //std::cout<<"-T:"<<std::endl<<small_P3f[0]<<std::endl;
 
-            if(i_t>=20){
+            if(i_t>=30){
                 cv::Mat r_t=r.t();
                 //计时
                 /*timeval time_pub;
@@ -1360,13 +1360,13 @@ public:
             //cv::putText(I, position, cv::Point(p.x+50, p.y+50), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255),2);
 		}
         //绘制方向向量
-        circle(I, small_P2d[0], 2, cv::Scalar(255),-1);
-        line(I,small_P2d[0],small_P2d[far_point],cv::Scalar(0),2);
-        line(I,small_P2d[0],small_P2d[abs(near_point)],cv::Scalar(100),2);
+        //circle(I, small_P2d[0], 2, cv::Scalar(255),-1);
+        line(I,small_P2d[0],small_P2d[far_point],cv::Scalar(0,0,255),2);
+        line(I,small_P2d[0],small_P2d[abs(near_point)],cv::Scalar(0,255,0),2);
 		// add a title
 		char title[20];
 		snprintf(title,20, "%.02f fps", fps);
-        cv::putText(I, title, cv::Point(15, 40), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(255),2);
+        cv::putText(I, title, cv::Point(15, 40), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(0,0,255),2);
 		// show
 		cv::imshow("tracking...", I);
 		cv::waitKey(1);

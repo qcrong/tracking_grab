@@ -276,10 +276,14 @@ bool load_template_params(const std::string &template_img_dir_,std::vector<cv::P
     descript->compute(I_template,template_keypoints,template_description);
     /*初始化四个角点*/
     I_template_conners_.resize(4);
-    I_template_conners_[0]=cv::Point2f(0,0);
-    I_template_conners_[1]=cv::Point2f(I_template.cols,0);
-    I_template_conners_[2]=cv::Point2f(I_template.cols,I_template.rows);
-    I_template_conners_[3]=cv::Point2f(0,I_template.rows);
+//    I_template_conners_[0]=cv::Point2f(0,0);
+//    I_template_conners_[1]=cv::Point2f(I_template.cols,0);
+//    I_template_conners_[2]=cv::Point2f(I_template.cols,I_template.rows);
+//    I_template_conners_[3]=cv::Point2f(0,I_template.rows);
+    I_template_conners_[0]=cv::Point2f(27,0);
+    I_template_conners_[1]=cv::Point2f(1,24);
+    I_template_conners_[2]=cv::Point2f(111,25);
+    I_template_conners_[3]=cv::Point2f(131,1);
     /*模板提取边缘，并进行膨胀，获得的特征区域*/
     cv::Mat edge,gray;
     cv::cvtColor(I_template,gray,cv::COLOR_BGR2GRAY);//模板图像转换为灰度图

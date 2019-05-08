@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   gpf
 )
 find_package(OpenCV REQUIRED )
+find_package(VISP REQUIRED )
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -231,8 +232,9 @@ add_executable(ur_grab_pbvs
   src/ur_grab_pbvs.cpp
 )
 target_link_libraries(ur_grab_pbvs
-  ${catkin_LIBRARIES}
+  ${VISP_LIBRARIES}
   ${OpenCV_LIBS}
+  ${catkin_LIBRARIES}
 )
 add_dependencies( ur_grab_pbvs
   ${catkin_EXPORTED_TARGETS}
