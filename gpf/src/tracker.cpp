@@ -1317,7 +1317,7 @@ public:
 		propose_particles(particles_, particles);
 		//std::cerr << "-propose_particles: " << std::endl;
 		//绘制所有跟踪框
-		//myShow(I_ORI, particles, i_t, 1);
+        //myShow(I_ORI, particles, i_t, 1);
 		// update weights 更新w
 		update_particle_weights(particles, i_I, w_, w);
 		//std::cerr << "- sample w after update_particle_weights(): " << w[0] << std::endl;
@@ -1332,7 +1332,7 @@ public:
 		// update X, particles, w
 		state_.X = X_opt;
 		particles_ = particles_res;
-		//myShow(I_ORI, particles_, i_t, 0);
+        //myShow(I_ORI, particles_, i_t, 0);
 		w_ = w_res;
 		// return
 		o_X_opt = X_opt;
@@ -1367,6 +1367,11 @@ public:
 		const cv::Point *pts[1] = { pnts.data() };
 		const int npts[1] = { (int)pnts.size() };
 		polylines(I, pts, npts, 1, true, cv::Scalar(255, 0, 0), 2); //绘制包围多边形
+        //采集数据,输出红色包围盒
+//        cv::Mat I_color;
+//        cv::cvtColor(I,I_color,CV_GRAY2BGR);
+//        polylines(I_color, pts, npts, 1, true, cv::Scalar(0, 0, 255), 2); //绘制包围多边形
+//        cv::imwrite(i_fn_out, I_color);
 		
 		// draw t ::FIXME: access to private vars
 		//int n_particles = particles_.size();
@@ -1571,7 +1576,8 @@ public:
 	}
 
 	void myShow(const cv::Mat &i_I, const std::vector<Tracker::Particle> i_particles, const int i_t, bool track) {
-		cv::Mat I = i_I.clone();
+        cv::Mat I;
+        cv::cvtColor(i_I,I,CV_GRAY2BGR);
 		// draw X
 		for (int k = 0; k < i_particles.size(); k++)
 		{
@@ -1591,7 +1597,7 @@ public:
 			}
 			const cv::Point *pts[1] = { pnts.data() };
 			const int npts[1] = { (int)pnts.size() };
-			polylines(I, pts, npts, 1, true, cv::Scalar(255, 0, 0), 1); //绘制包围多边形
+            polylines(I, pts, npts, 1, true, cv::Scalar(0, 0, 255), 1); //绘制包围多边形
 			//cv::waitKey(1);
 		}
 		// show
@@ -1607,7 +1613,7 @@ public:
 		{
 			i_fn_out = params_.id + "/" + std::to_string(i_t) + std::string("_2") + std::string(".png"); //输出图片文件路径和文件名
 		}
-		//cv::imwrite(i_fn_out, I);
+        //cv::imwrite(i_fn_out, I);
 		return;
 	}
 
@@ -1657,6 +1663,7 @@ public:
                 argFps+=fps;
             }
             Show(I_ORI, X_opt, t, fn_out);
+            //myShow(I_ORI,particles_,t,0);
             //cv::waitKey(0);
             //std::cout<<"show finished"<<std::endl;
         }
