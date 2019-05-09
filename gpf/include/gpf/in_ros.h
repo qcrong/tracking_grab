@@ -320,7 +320,17 @@ bool load_template_params_2D(const cv::Mat &i_ori_,const std::vector<float> &tem
 
     cv::blur(gray,edge,cv::Size(3,3));//降噪
     cv::Canny(edge,edge,20,60,3);
-    //cv::imshow("edge canny",edge);
+    cv::imshow("edge canny",edge);
+    //show cany in gray img
+//    cv::Mat canyGray=gray.clone();
+//    for(int u=template_xs_[0];u<=template_xs_[2];u++)
+//    for(int v=template_ys_[0];v<=template_ys_[2];v++){
+//        if(edge.at<uchar>(v,u)==255){
+//            canyGray.at<uchar>(v,u)=255;
+//        }
+//    }
+//    cv::imshow("canyGray",canyGray);
+
     cv::Mat element=cv::getStructuringElement(cv::MORPH_RECT,cv::Size(3,3));//获取自定义核
     cv::dilate(edge,edge,element);//膨胀，扩大两区域
     //cv::imshow("edge dilate",edge);
@@ -329,14 +339,16 @@ bool load_template_params_2D(const cv::Mat &i_ori_,const std::vector<float> &tem
     int allPoints=0;
     int featurePoints=0;
 
+    //cv::Mat dilateGray=gray.clone();
     for(int u=template_xs_[0];u<=template_xs_[2];u++)
         for(int v=template_ys_[0];v<=template_ys_[2];v++){
             allPoints++;
             //cv::circle(gray,cv::Point(u,v),1,cv::Scalar(255));
             if(edge.at<uchar>(v,u)==255){
                 I_template_features_.push_back(cv::Point2f(u,v));
-                //color_img.at<uchar>(v,u)=cv::Scalar(255,255,255);
-                //cv::circle(color_img,cv::Point(u,v),1,cv::Scalar(255,255,255));
+                //dilateGray.at<uchar>(v,u)=255;
+                //color_img.at<uchar>(v,u)=cv::Scalar(255,255,255);//不能这么赋值
+                cv::circle(color_img,cv::Point(u,v),1,cv::Scalar(255,255,255));
                 //std::cout<<u<<", "<<v<<std::endl;
                 featurePoints++;
             }
@@ -344,8 +356,9 @@ bool load_template_params_2D(const cv::Mat &i_ori_,const std::vector<float> &tem
 
     std::cout<<"allPoints: "<<allPoints<<std::endl;
     std::cout<<"featurePoints: "<<featurePoints<<std::endl;
-    //cv::imshow("test uv", color_img);
-    //cv::waitKey(0);
+    //cv::imshow("dilateGray", dilateGray);
+    cv::imshow("test uv", color_img);
+    cv::waitKey(0);
 
 
 
