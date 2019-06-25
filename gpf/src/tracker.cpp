@@ -1553,10 +1553,10 @@ public:
 		// add a title
 		char title[20];
 		snprintf(title,20, "%.02f fps", fps);
-        cv::putText(I, title, cv::Point(100, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255),2);
+        cv::putText(I, title, cv::Point(150, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255),2);
         char title2[10];
-        snprintf(title2,10, "%d", i_t);
-        cv::putText(I, title2, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255),2);
+        snprintf(title2,10, "#%d", i_t);
+        cv::putText(I, title2, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255),2);
 
 		// show
 		cv::imshow("tracking...", I);
