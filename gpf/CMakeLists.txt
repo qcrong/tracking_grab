@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 2.8.3)
-project(pf_example)
+﻿cmake_minimum_required(VERSION 2.8.3)
+project(gpf)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -7,12 +7,19 @@ project(pf_example)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3")
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
+  cv_bridge
+  image_transport
+  sensor_msgs
+  kinect2_bridge
+  tf2_ros
+  geometry_msgs
+  message_generation
 )
-find_package(OpenCV REQUIRED)
-find_package(GSL REQUIRED)
+find_package(OpenCV REQUIRED )
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -47,11 +54,12 @@ find_package(GSL REQUIRED)
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
+add_message_files(
+    FILES
+    obj_tool_transform.msg
 #   Message1.msg
 #   Message2.msg
-# )
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -68,10 +76,11 @@ find_package(GSL REQUIRED)
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+    DEPENDENCIES
+    geometry_msgs
+    std_msgs  # Or other packages containing msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -104,8 +113,9 @@ find_package(GSL REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES pf_example
-#  CATKIN_DEPENDS roscpp std_msgs
+#  LIBRARIES gpf
+   CATKIN_DEPENDS
+   message_runtime
 #  DEPENDS system_lib
 )
 
@@ -117,16 +127,14 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
 # include
-  include/pf_example
-  /usr/local/include
-  /usr/local/include/gsl
+  include/gpf
+  /usr/include/eigen3
   ${catkin_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/pf_example.cpp
+#   src/${PROJECT_NAME}/gpf.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -137,7 +145,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/pf_example_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/gpf_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -194,25 +202,20 @@ include_directories(
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_pf_example.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_gpf.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-add_executable(pf_example 
-  src/main.cpp
-  src/observation.cpp
-  src/particles.cpp
-  src/utils.cpp
+add_executable(gpf 
+  src/tracker.cpp
 )
-target_link_libraries(pf_example
+target_link_libraries(gpf
    ${catkin_LIBRARIES}
    ${OpenCV_LIBS}
-   /usr/local/lib
 )
-add_dependencies(
-  pf_example
+add_dependencies(gpf
   ${catkin_EXPORTED_TARGETS}
 )

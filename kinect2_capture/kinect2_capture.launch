@@ -1,0 +1,4 @@
+<launch>
+ <arg name="cap_path" value="/home/qcrong/Documents/thesis/kinect_recognition" />
+ <node name="kinect2_capture_node" pkg="kinect2_capture" type="kinect2_capture_node" args="$(arg cap_path)" output="screen" />
+</launch>

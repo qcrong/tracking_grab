@@ -1,0 +1,13 @@
+<launch>
+	<arg name="e305" value="true" />
+
+	<group if="$(arg e305)">
+		<arg name="file" value="/home/e305/qiuchunrong_ws/src/tracking_grab/gpf/cereal_test305_Aff2.conf" />
+ 		<node name="gpf_node" pkg="gpf" type="gpf" args="$(arg file)" output="screen" />
+	</group>
+
+	<group unless="$(arg e305)">
+		<arg name="file" value="/home/qcrong/thesis_ws/src/gpf/cereal_test_Aff2.conf" />
+ 		<node name="gpf_node" pkg="gpf" type="gpf" args="$(arg file)" output="screen" />
+	</group>
+</launch>

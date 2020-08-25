@@ -1,0 +1,22 @@
+//动态抓取
+roscore
+roslaunch ur_modern_driver ur5_bringup.launch robot_ip:=192.168.0.103
+rosrun ur_arm node 
+sudo chmod 777 /dev/ttyUSB0
+rosrun robotiq_2f_gripper_control Robotiq2FGripperRtuNode.py /dev/ttyUSB0
+rosrun robotiq_2f_gripper_control Robotiq2FGripperSimpleController.py
+roslaunch kinect2_bridge kinect2_bridge.launch 
+rosrun ur_grab ur_grab_pbvs
+roslaunch gpf gpf.launch 
+
+
+//标定
+roscore
+roslaunch ur_modern_driver ur5_bringup.launch robot_ip:=192.168.0.103
+rosrun ur_arm node
+sudo chmod 777 /dev/ttyUSB0
+rosrun robotiq_2f_gripper_control Robotiq2FGripperRtuNode.py /dev/ttyUSB0
+rosrun robotiq_2f_gripper_control Robotiq2FGripperSimpleController.py
+rosrun calibration eye_to_hand_calculate 
+rosrun calibration hand_eye_arm_control
+

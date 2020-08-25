@@ -1,22 +1,27 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(pf_example)
+project(ur_arm)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+## Add support for C++11, supported in ROS Kinetic and newer
+# add_definitions(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
+find_package(catkin REQUIRED COMPONENTS 
+  roscpp  
+  geometry_msgs
   std_msgs
-  cv_bridge
-  image_transport
-  sensor_msgs
+  std_srvs 
+  message_generation
+
+  actionlib  
+  control_msgs   
+  sensor_msgs  
+  tf  
+  trac_ik_lib  
+  trajectory_msgs	
 )
-find_package(OpenCV REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(gsl REQUIRED gsl)
+
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -74,8 +79,19 @@ pkg_check_modules(gsl REQUIRED gsl)
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
 #   DEPENDENCIES
-#   std_msgs
+#   std_msgs  # Or other packages containing msgs
 # )
+
+add_message_files(
+  FILES
+  Joints.msg
+)
+add_service_files(
+  FILES
+  SetDigitalOut.srv
+)
+
+generate_messages(DEPENDENCIES std_msgs)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -97,20 +113,22 @@ pkg_check_modules(gsl REQUIRED gsl)
 #   cfg/DynReconf2.cfg
 # )
 
+
 ###################################
 ## catkin specific configuration ##
 ###################################
 ## The catkin_package macro generates cmake config files for your package
 ## Declare things to be passed to dependent projects
-## INCLUDE_DIRS: uncomment this if your package contains header files
+## INCLUDE_DIRS: uncomment this if you package contains header files
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES pf_example
-#  CATKIN_DEPENDS roscpp std_msgs
+#  LIBRARIES ur_arm
+#  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
+   CATKIN_DEPENDS geometry_msgs roscpp std_msgs std_srvs message_runtime
 )
 
 ###########
@@ -119,18 +137,15 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
+# include_directories(include)
 include_directories(
-# include
-  include/pf_example
-  /usr/local/include
-  /usr/local/include/gsl
+  include
   ${catkin_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/pf_example.cpp
+#   src/${PROJECT_NAME}/ur_arm.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -141,8 +156,40 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/pf_example_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/ur_arm_node.cpp)
 
+
+add_executable(
+  node
+  src/main.cpp
+  src/ur_arm.cpp
+  src/ur_arm_forkin.cpp
+  src/ur_arm_node.cpp
+  include/ur_arm/pose.h
+  include/ur_arm/ur_arm.h
+  include/ur_arm/ur_arm_forkin.h
+  include/ur_arm/ur_arm_node.h
+)
+add_executable(single_robot_move_test src/single_robot_move_test.cpp)
+
+
+target_link_libraries(
+  node
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(single_robot_move_test
+   ${catkin_LIBRARIES}
+)
+
+
+add_dependencies(
+  node
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  single_robot_move_test
+  ${catkin_EXPORTED_TARGETS}
+)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -198,25 +245,10 @@ include_directories(
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_pf_example.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_ur_arm.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-add_executable(pf_example 
-  src/main.cpp
-  src/observation.cpp
-  src/particles.cpp
-  src/utils.cpp
-)
-target_link_libraries(pf_example
-   ${catkin_LIBRARIES}
-   ${OpenCV_LIBS}
-   ${gsl_LIBRARIES}
-)
-add_dependencies(
-  pf_example
-  ${catkin_EXPORTED_TARGETS}
-)
